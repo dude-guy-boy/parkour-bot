@@ -11,7 +11,7 @@ __pycache__/
 config/
 data/
 logs/
-
+*.code-workspace
 
 # Distribution / packaging
 .Python
