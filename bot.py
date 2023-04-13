@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from src.files import Directory
 from interactions import Client, Intents
 
-# TODO: in-discord logging, Backups, Bot restart / reload
+# TODO: in-discord logging, universal interaction logging, Backups, Bot restart / reload
 
 async def main():
     load_dotenv()
@@ -31,7 +31,7 @@ async def main():
         debug_scope = DEBUG_SCOPE,
         disable_dm_commands = True,
         basic_logging = False,
-        # logger = main_logger
+        # logger = logger
         )
 
     # Create base folders
