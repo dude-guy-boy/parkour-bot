@@ -25,6 +25,8 @@ class Todo(Extension):
         self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
         self.user = Query()
 
+    # TODO: Maybe move these functions to src to be used globally?
+
     def init_user(self, id):
         '''Adds user to todo database if they are not already there'''
         # If user is not in todo db, add them

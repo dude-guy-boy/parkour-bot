@@ -5,6 +5,11 @@ from datetime import datetime
 from src.files import Directory
 from os import path
 
+# TODO: Add class for discord logging
+class DiscordLogger:
+    async def log(self):
+        print("Hi")
+
 def get_logger(name):
     '''Gets a logger'''
 

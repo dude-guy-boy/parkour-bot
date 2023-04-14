@@ -16,6 +16,7 @@ class Paginator(standard_paginator.Paginator):
     ) -> "standard_paginator.Paginator":
         """
         Create a paginator from a list of strings. Useful to maintain formatting.
+        Can also use a set line number which is useful for lists / leaderboards
 
         Args:
             client: A reference to the client
