@@ -1,5 +1,6 @@
 from interactions.ext import paginators as standard_paginator
-from interactions import Client
+from interactions import Client, MISSING
+import textwrap
 
 class Paginator(standard_paginator.Paginator):
     @classmethod
@@ -9,7 +10,7 @@ class Paginator(standard_paginator.Paginator):
         content: str,
         prefix: str = "",
         suffix: str = "",
-        num_lines: int = 10,
+        num_lines: int = MISSING,
         page_size: int = 4000,
         timeout: int = 0,
     ) -> "standard_paginator.Paginator":
@@ -29,17 +30,30 @@ class Paginator(standard_paginator.Paginator):
             A paginator system
         """
 
-        num_lines = max(1, num_lines) # Make sure number of lines is at least one
-        page_size = max(1, page_size) # Make sure max page length is at least one
+        # If num_lines not set, don't split pages by line
+        if num_lines == MISSING:
+            content_pages = textwrap.wrap(
+                content,
+                width=page_size - (len(prefix) + len(suffix)),
+                break_long_words=True,
+                break_on_hyphens=False,
+                replace_whitespace=False,
+            )
+            pages = [standard_paginator.Page(c, prefix=prefix, suffix=suffix) for c in content_pages]
+            return cls(client, pages=pages, timeout_interval=timeout)
+        
+        else:
+            num_lines = max(1, num_lines) # Make sure number of lines is at least one
+            page_size = max(1, page_size) # Make sure max page length is at least one
 
-        page_lists = cls.__break_lines(cls, lines = content.split("\n"), num_lines = num_lines, page_size = page_size)
+            page_lists = cls.__break_lines(cls, lines = content.split("\n"), num_lines = num_lines, page_size = page_size)
 
-        pages = []
+            pages = []
 
-        for page in page_lists:
-            pages.append(standard_paginator.Page(content="\n".join(page), prefix=prefix, suffix=suffix))
+            for page in page_lists:
+                pages.append(standard_paginator.Page(content="\n".join(page), prefix=prefix, suffix=suffix))
 
-        return cls(client, pages=pages, timeout_interval=timeout)
+            return cls(client, pages=pages, timeout_interval=timeout)
     
     def __break_lines(self, lines, num_lines, page_size):
         result = []
