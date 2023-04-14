@@ -9,11 +9,11 @@ class Errors(Extension):
         self.client = client
         self.logger = logs.init_logger()
 
-    @listen(disable_default_listeners=True)
-    async def on_command_error(self, error: CommandError):
-        # cancel default interactions error msg
-        # TODO: Make this configurable
-        pass
+    # @listen(disable_default_listeners=True)
+    # async def on_command_error(self, error: CommandError):
+    #     # cancel default interactions error msg
+    #     # TODO: Make this configurable
+    #     pass
         
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension

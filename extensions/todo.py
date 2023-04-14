@@ -11,7 +11,8 @@ from interactions import (
     ButtonStyle,
     AutocompleteContext
     )
-from interactions.ext.paginators import Paginator
+# from interactions.ext.paginators import Paginator
+from src.custompaginator import Paginator
 import src.logs as logs
 import os.path as path
 import src.colors as color
@@ -120,7 +121,7 @@ class Todo(Extension):
         sub_cmd_name="list",
         sub_cmd_description="View your todo list",
     )
-    async def todo_list_todo(self, ctx: SlashContext):
+    async def todo_list(self, ctx: SlashContext):
         todo_list = self.get_todo_list(ctx.user.id)
         
         if not todo_list:
@@ -132,9 +133,7 @@ class Todo(Extension):
         for idx, item in enumerate(todo_list):
             formatted_list.append(f"{(idx+1):02}: {item}")
 
-        formatted_list = "```" + "\n".join(formatted_list) + "```"
-
-        paginator = Paginator.create_from_string(self.bot, formatted_list, page_size=1000)
+        paginator = Paginator.create_from_string(self.bot, "\n".join(formatted_list), num_lines=10, page_size=1000, prefix="```", suffix="```")
         paginator.default_button_color = ButtonStyle.GRAY
         paginator.default_color = color.GREEN
         paginator.default_title = "Your Todo List"
@@ -194,6 +193,12 @@ class Todo(Extension):
         todo_list = self.get_todo_list(ctx.user.id)
         done_list = self.get_done_list(ctx.user.id)
         
+        # For tasks longer than 100 chars because
+        # max length for autocomplete value is 100
+        for item in todo_list:
+            if len(task) == 100 and item.startswith(task):
+                task = item
+
         try:
             # Remove task
             todo_list.remove(task)
@@ -237,7 +242,7 @@ class Todo(Extension):
 
         for idx, task in enumerate(todo_list):
             if task.startswith(ctx.input_text):
-                choices.append({"name": f"{(idx+1):02}: {task}", "value": task})
+                choices.append({"name": f"{(idx+1):02}: {task[:80]}", "value": task[:100]})
         
         await ctx.send(choices=choices[:25])
 
