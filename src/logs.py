@@ -10,6 +10,8 @@ class DiscordLogger:
     async def log(self):
         print("Hi")
 
+### Most of the stuff below is based on 'logutil' from the old interactions boilerplate ###
+
 def get_logger(name):
     '''Gets a logger'''
 
@@ -60,16 +62,11 @@ class CustomFormatter(logging.Formatter):
     reset = "\x1b[0m"
 
     FORMATS = {
-        logging.DEBUG: green + f"{reset}[%(asctime)s]{green}[%(levelname)-7s][%(name)-14s]\
-{reset}[{red}%(lineno)4s{reset}] %(message)s" + reset,
-        logging.INFO: grey + f"{reset}[%(asctime)s]{grey}[%(levelname)-7s][%(name)-14s]\
-{reset}[{red}%(lineno)4s{reset}] %(message)s" + reset,
-        logging.WARNING: yellow + f"[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[{red}%(lineno)4s{reset}{yellow}] %(message)s" + reset,
-        logging.ERROR: red + "[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[%(lineno)4s] %(message)s" + reset,
-        logging.CRITICAL: bold_red +
-        "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s" + reset
+        logging.DEBUG: green + f"{reset}[%(asctime)s]{green}[%(levelname)-7s][%(name)-14s]{reset}[{red}%(lineno)4s{reset}] %(message)s" + reset,
+        logging.INFO: grey + f"{reset}[%(asctime)s]{grey}[%(levelname)-7s][%(name)-14s]{reset}[{red}%(lineno)4s{reset}] %(message)s" + reset,
+        logging.WARNING: yellow + f"[%(asctime)s][%(levelname)-7s][%(name)-14s][{red}%(lineno)4s{reset}{yellow}] %(message)s" + reset,
+        logging.ERROR: red + "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s" + reset,
+        logging.CRITICAL: bold_red + "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s" + reset
     }
 
     def format(self, record):
@@ -81,14 +78,10 @@ class CustomFileFormatter(logging.Formatter):
     """Custom file formatter class"""
 
     FORMATS = {
-        logging.DEBUG: f"[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[%(lineno)4s] %(message)s",
-        logging.INFO: f"[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[%(lineno)4s] %(message)s",
-        logging.WARNING: f"[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[%(lineno)4s] %(message)s",
-        logging.ERROR: "[%(asctime)s][%(levelname)-7s][%(name)-14s]\
-[%(lineno)4s] %(message)s",
+        logging.DEBUG: "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s",
+        logging.INFO: "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s",
+        logging.WARNING: "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s",
+        logging.ERROR: "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s",
         logging.CRITICAL: "[%(asctime)s][%(levelname)-7s][%(name)-14s][%(lineno)4s] %(message)s"
     }
 

@@ -26,7 +26,7 @@ async def main():
     # Create bot instance
     bot = Client(
         token = TOKEN,
-        auto_defer = True,
+        auto_defer = False,
         intents = Intents.DEFAULT | Intents.MESSAGE_CONTENT,
         debug_scope = DEBUG_SCOPE,
         disable_dm_commands = True,
@@ -41,7 +41,6 @@ async def main():
 
     logger.info("Starting bot...")
 
-    # Load extensions
     # Get a list of all extensions
     extensions = [
         module[:-3]
@@ -49,7 +48,7 @@ async def main():
         if module not in ("__init__.py", "template.py") and module[-3:] == ".py"
     ]
 
-    # Load all extensions
+    # Load all extensions in list
     if extensions != []:
         logger.info(f"Importing {len(extensions)} extension(s): {', '.join(extensions)}")
     else:

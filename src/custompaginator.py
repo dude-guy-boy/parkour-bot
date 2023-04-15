@@ -1,8 +1,23 @@
 from interactions.ext import paginators as standard_paginator
-from interactions import Client, MISSING
-import textwrap
+from interactions.ext.paginators import Timeout
+from interactions import (
+    Client,
+    MISSING,
+    BaseContext,
+    Message,
+    SlashContext,
+    TYPE_ALL_CHANNEL,
+    ComponentContext
+    )
+import textwrap, asyncio, attrs
+from typing import Optional, Union
 
+@attrs.define(eq=False, order=False, hash=False, kw_only=False)
 class Paginator(standard_paginator.Paginator):
+
+    allow_multi_user: bool = attrs.field(repr=False, default=True)
+    '''Allows multiple users to use this paginator'''
+
     @classmethod
     def create_from_string(
         cls,
@@ -13,6 +28,7 @@ class Paginator(standard_paginator.Paginator):
         num_lines: int = MISSING,
         page_size: int = 4000,
         timeout: int = 0,
+        allow_multi_user: bool = False
     ) -> "standard_paginator.Paginator":
         """
         Create a paginator from a list of strings. Useful to maintain formatting.
@@ -41,7 +57,7 @@ class Paginator(standard_paginator.Paginator):
                 replace_whitespace=False,
             )
             pages = [standard_paginator.Page(c, prefix=prefix, suffix=suffix) for c in content_pages]
-            return cls(client, pages=pages, timeout_interval=timeout)
+            return cls(client, pages=pages, timeout_interval=timeout, allow_multi_user=allow_multi_user)
         
         else:
             num_lines = max(1, num_lines) # Make sure number of lines is at least one
@@ -54,7 +70,7 @@ class Paginator(standard_paginator.Paginator):
             for page in page_lists:
                 pages.append(standard_paginator.Page(content="\n".join(page), prefix=prefix, suffix=suffix))
 
-            return cls(client, pages=pages, timeout_interval=timeout)
+            return cls(client, pages=pages, timeout_interval=timeout, allow_multi_user=allow_multi_user)
     
     def __break_lines(self, lines, num_lines, page_size):
         result = []
@@ -93,6 +109,82 @@ class Paginator(standard_paginator.Paginator):
         
         return result
     
+    # TODO: Figure out why this isnt overriding
+    async def send(self, ctx: Optional[Union[BaseContext, SlashContext]] = None, channel_id: Optional[int] = None, ephemeral: bool = False, author_id: Optional[int] = None) -> Message:
+        """
+        Send this paginator. Modified to allow ephemeral sending and sending to a specific channel
+
+        Args:
+            ctx: The context to send this paginator with
+            channel: The channel to send this paginator to
+            author: The paginator author ()
+            ephemeral: Whether the paginator should be sent ephemerally or not
+
+        Returns:
+            The resulting message
+
+        """
+
+        if (channel_id and ctx) or (not channel_id and not ctx):
+            raise ValueError('You must input either ctx or the target channel')
+        
+        if channel_id and not self.allow_multi_user and not author_id:
+            raise ValueError("You must specify the author_id to send paginator to a channel when allow_multi_user is False")
+
+        if channel_id:
+            channel: TYPE_ALL_CHANNEL = await self.client.fetch_channel(channel_id=channel_id)
+            self._message = await channel.send(**self.to_dict())
+            self._author_id = None if self.allow_multi_user else author_id
+
+        elif(ctx):
+            if(type(ctx) == SlashContext):
+                self._message = await ctx.send(**self.to_dict(), ephemeral=ephemeral)
+            else:
+                self._message = await ctx.send(**self.to_dict())
+        
+            self._author_id = ctx.author.id
+
+        if self.timeout_interval > 1:
+            self._timeout_task = Timeout(self)
+            _ = asyncio.create_task(self._timeout_task())
+
+        return self._message
+
+    async def _on_button(self, ctx: ComponentContext, *args, **kwargs) -> Optional[Message]:
+        '''
+        Handles paginator button presses
+        Modified to allow multiple users to use the paginator if set
+        '''
+
+        if (ctx.author.id != self.author_id) and not self.allow_multi_user:
+            return (
+                await ctx.send(self.wrong_user_message, ephemeral=True)
+                if self.wrong_user_message
+                else await ctx.defer(edit_origin=True)
+            )
+        
+        if self._timeout_task:
+            self._timeout_task.ping.set()
+        match ctx.custom_id.split("|")[1]:
+            case "first":
+                self.page_index = 0
+            case "last":
+                self.page_index = len(self.pages) - 1
+            case "next":
+                if (self.page_index + 1) < len(self.pages):
+                    self.page_index += 1
+            case "back":
+                if self.page_index >= 1:
+                    self.page_index -= 1
+            case "select":
+                self.page_index = int(ctx.values[0])
+            case "callback":
+                if self.callback:
+                    return await self.callback(ctx)
+
+        await ctx.edit_origin(**self.to_dict())
+        return None
+
     def __break_string(self, input_str, max_len):
         words = input_str.split()
         output_str = ''

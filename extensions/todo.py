@@ -25,7 +25,7 @@ class Todo(Extension):
         self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
         self.user = Query()
 
-    # TODO: Maybe move these functions to src to be used globally?
+    # TODO: Maybe move these db functions to src to be used globally? (modify them)
 
     def init_user(self, id):
         '''Adds user to todo database if they are not already there'''
@@ -135,13 +135,21 @@ class Todo(Extension):
         for idx, item in enumerate(todo_list):
             formatted_list.append(f"{(idx+1):02}: {item}")
 
-        paginator = Paginator.create_from_string(self.bot, "\n".join(formatted_list), num_lines=10, page_size=1000, prefix="```", suffix="```")
+        paginator = Paginator.create_from_string(
+            self.bot,
+            "\n".join(formatted_list),
+            num_lines=10,
+            page_size=1000,
+            prefix="```",
+            suffix="```",
+            allow_multi_user=True
+            )
         paginator.default_button_color = ButtonStyle.GRAY
         paginator.default_color = color.GREEN
         paginator.default_title = "Your Todo List"
         # paginator.back_button_emoji = '<'
 
-        await paginator.send(ctx)
+        await paginator.send(channel_id=1096378002591469689)
 
         # await ctx.send(formatted_list)
 
