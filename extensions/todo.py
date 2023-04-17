@@ -11,11 +11,10 @@ from interactions import (
     ButtonStyle,
     AutocompleteContext
     )
-# from interactions.ext.paginators import Paginator
 from src.custompaginator import Paginator
 import src.logs as logs
 import os.path as path
-import src.colors as color
+from src.colors import Color
 from tinydb import TinyDB, Query
 
 class Todo(Extension):
@@ -81,13 +80,13 @@ class Todo(Extension):
         # If task already on their list, say so
         for item in todo_list:
             if item.casefold() == task.casefold():
-                await ctx.send(embed=Embed(description = f"You already have `{task}` on your todo list!", color = color.RED))
+                await ctx.send(embed=Embed(description = f"You already have `{task}` on your todo list!", color = Color.RED))
                 return
 
         todo_list.append(task)
         self.set_todo_list(todo_list, ctx.user.id)
 
-        await ctx.send(embed=Embed(description=f"Added `{task}` to your todo list.", color=color.GREEN))
+        await ctx.send(embed=Embed(description=f"Added `{task}` to your todo list.", color=Color.GREEN))
 
     ### /TODO REMOVE ###
     @slash_command(
@@ -110,11 +109,11 @@ class Todo(Extension):
         try:
             todo_list.remove(task)
         except:
-            await ctx.send(embed=Embed(description = f"`{task}` is not on your todo list!", color = color.RED))
+            await ctx.send(embed=Embed(description = f"`{task}` is not on your todo list!", color = Color.RED))
             return
         
         self.set_todo_list(todo_list, ctx.user.id)
-        await ctx.send(embed=Embed(description=f"Removed `{task}` from your todo list.", color=color.GREEN))
+        await ctx.send(embed=Embed(description=f"Removed `{task}` from your todo list.", color=Color.GREEN))
 
     ### /TODO LIST ###
     @slash_command(
@@ -127,7 +126,7 @@ class Todo(Extension):
         todo_list = self.get_todo_list(ctx.user.id)
         
         if not todo_list:
-            await ctx.send(embed=Embed(description="Your todo list is empty!\nTo add something to it use: `/todo add <text>`", color=color.RED))
+            await ctx.send(embed=Embed(description="Your todo list is empty!\nTo add something to it use: `/todo add <text>`", color=Color.RED))
             return
         
         formatted_list = []
@@ -145,11 +144,12 @@ class Todo(Extension):
             allow_multi_user=True
             )
         paginator.default_button_color = ButtonStyle.GRAY
-        paginator.default_color = color.GREEN
+        paginator.default_color = Color.GREEN
         paginator.default_title = "Your Todo List"
         # paginator.back_button_emoji = '<'
 
-        await paginator.send(channel_id=1096378002591469689)
+        await paginator.send(ctx)
+        # await paginator.send(channel_id=1096378002591469689)
 
         # await ctx.send(formatted_list)
 
@@ -164,7 +164,7 @@ class Todo(Extension):
         done_list = self.get_done_list(ctx.user.id)
         
         if not done_list:
-            await ctx.send(embed=Embed(description="Your completed task list is empty!\nTo add something to it mark a task from your todo list as done, using: `/todo done <item>`", color=color.RED))
+            await ctx.send(embed=Embed(description="Your completed task list is empty!\nTo add something to it mark a task from your todo list as done, using: `/todo done <item>`", color=Color.RED))
             return
         
         done_list.reverse()
@@ -177,7 +177,7 @@ class Todo(Extension):
 
         paginator = Paginator.create_from_string(self.bot, formatted_list, page_size=1000)
         paginator.default_button_color = ButtonStyle.GRAY
-        paginator.default_color = color.GREEN
+        paginator.default_color = Color.GREEN
         paginator.default_title = "Your Completed Tasks"
         # paginator.back_button_emoji = '<'
 
@@ -213,7 +213,7 @@ class Todo(Extension):
             # Remove task
             todo_list.remove(task)
         except:
-            await ctx.send(embed=Embed(description=f"Task `{task}` is not on your todo list.", color=color.RED))
+            await ctx.send(embed=Embed(description=f"Task `{task}` is not on your todo list.", color=Color.RED))
             return
         
         # Set new list
@@ -223,7 +223,7 @@ class Todo(Extension):
         done_list.append(task)
         self.set_done_list(done_list=done_list, id=ctx.user.id)
 
-        await ctx.send(embed=Embed(description = f"Marked task: `{task}` as done.", color=color.GREEN))
+        await ctx.send(embed=Embed(description = f"Marked task: `{task}` as done.", color=Color.GREEN))
 
     ### /TODO CLEAR ###
     @slash_command(
@@ -241,7 +241,7 @@ class Todo(Extension):
 
         self.set_todo_list(todo_list=[], id=ctx.user.id)
         self.set_done_list(done_list=done_list, id=ctx.user.id)
-        await ctx.send(embed=Embed(description = f"Cleared your todo list!", color=color.GREEN))
+        await ctx.send(embed=Embed(description = f"Cleared your todo list!", color=Color.GREEN))
 
     ### Task autocomplete ###
     @todo_done.autocomplete("task")

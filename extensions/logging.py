@@ -15,6 +15,7 @@ from interactions import (
 from interactions.api.events.internal import CommandCompletion
 import src.logs as logs
 from src.database import Config
+from src.colors import Color
 
 class Logging(Extension):
     def __init__(self, client: Client):
@@ -63,7 +64,7 @@ class Logging(Extension):
     )
     async def config_log_channel(self, ctx: SlashContext, channel: GuildText):
         Config.set_config_parameter({"channel_id": str(channel.id)})
-        await ctx.send(embed=Embed())
+        await ctx.send(embed=Embed(description=f"Set logging channel to <#{channel.id}>", color=Color.GREEN))
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension

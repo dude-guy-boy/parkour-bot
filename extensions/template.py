@@ -14,7 +14,7 @@ from interactions import (
     AutocompleteContext
     )
 import src.logs as logs
-import src.colors as color
+from src.colors import Color
 import os.path as path
 from tinydb import TinyDB, Query
 
@@ -38,7 +38,7 @@ class Template(Extension):
         opt_type=OptionType.STRING
     )
     async def template_command(self, ctx: SlashContext, opt_one: str):
-        await ctx.send(embed=Embed(description=f"Sent from a template command! `{opt_one}`", color=color.GREEN))
+        await ctx.send(embed=Embed(description=f"Sent from a template command! `{opt_one}`", color=Color.GREEN))
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension

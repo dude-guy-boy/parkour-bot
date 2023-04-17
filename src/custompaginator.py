@@ -1,22 +1,44 @@
 from interactions.ext import paginators as standard_paginator
+from interactions.ext.paginators import Page
 from interactions.ext.paginators import Timeout
+from interactions.client.utils.serializer import export_converter
 from interactions import (
+    ActionRow,
+    Button,
+    ButtonStyle,
     Client,
     MISSING,
     BaseContext,
     Message,
+    PartialEmoji,
     SlashContext,
     TYPE_ALL_CHANNEL,
-    ComponentContext
+    ComponentContext,
+    StringSelectMenu,
+    StringSelectOption,
+    process_emoji,
+    spread_to_rows
     )
 import textwrap, asyncio, attrs
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 @attrs.define(eq=False, order=False, hash=False, kw_only=False)
 class Paginator(standard_paginator.Paginator):
 
     allow_multi_user: bool = attrs.field(repr=False, default=True)
     '''Allows multiple users to use this paginator'''
+
+    first_button_label: str = "<<"
+    '''Sets the first page button label'''
+
+    back_button_label: str = "<"
+    '''Sets the previous page button label'''
+
+    next_button_label: str = ">"
+    '''Sets the next page button label'''
+
+    last_button_label: str = ">>"
+    '''Sets the last page button label'''
 
     @classmethod
     def create_from_string(
@@ -149,6 +171,86 @@ class Paginator(standard_paginator.Paginator):
             _ = asyncio.create_task(self._timeout_task())
 
         return self._message
+
+    def create_components(self, disable: bool = False) -> List[ActionRow]:
+        """
+        Create the components for the paginator message.
+
+        Args:
+            disable: Should all the components be disabled?
+
+        Returns:
+            A list of ActionRows
+
+        """
+        output = []
+
+        if self.show_select_menu:
+            current = self.pages[self.page_index]
+            output.append(
+                StringSelectMenu(
+                    *(
+                        StringSelectOption(
+                            label=f"{i+1} {p.get_summary if isinstance(p, Page) else p.title}", value=str(i)
+                        )
+                        for i, p in enumerate(self.pages)
+                    ),
+                    custom_id=f"{self._uuid}|select",
+                    placeholder=f"{self.page_index+1} {current.get_summary if isinstance(current, Page) else current.title}",
+                    max_values=1,
+                    disabled=disable,
+                )
+            )
+
+        if self.show_first_button:
+            output.append(
+                Button(
+                    style=self.default_button_color,
+                    custom_id=f"{self._uuid}|first",
+                    disabled=disable or self.page_index == 0,
+                    label = self.first_button_label
+                )
+            )
+        if self.show_back_button:
+            output.append(
+                Button(
+                    style=self.default_button_color,
+                    custom_id=f"{self._uuid}|back",
+                    disabled=disable or self.page_index == 0,
+                    label = self.back_button_label
+                )
+            )
+
+        if self.show_callback_button:
+            output.append(
+                Button(
+                    style=self.default_button_color,
+                    emoji=PartialEmoji.from_dict(process_emoji(self.callback_button_emoji)),
+                    custom_id=f"{self._uuid}|callback",
+                    disabled=disable,
+                )
+            )
+
+        if self.show_next_button:
+            output.append(
+                Button(
+                    style=self.default_button_color,
+                    custom_id=f"{self._uuid}|next",
+                    disabled=disable or self.page_index >= len(self.pages) - 1,
+                    label = self.next_button_label
+                )
+            )
+        if self.show_last_button:
+            output.append(
+                Button(
+                    style=self.default_button_color,
+                    custom_id=f"{self._uuid}|last",
+                    disabled=disable or self.page_index >= len(self.pages) - 1,
+                    label = self.last_button_label
+                )
+            )
+
+        return spread_to_rows(*output)
 
     async def _on_button(self, ctx: ComponentContext, *args, **kwargs) -> Optional[Message]:
         '''
