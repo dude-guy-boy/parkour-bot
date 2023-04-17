@@ -24,8 +24,8 @@ class Template(Extension):
         self.logger = logs.init_logger()
 
         # Uncomment if storing data
-        self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
-        self.user = Query()
+        # self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
+        # self.user = Query()
 
     @slash_command(
         name="template-command",

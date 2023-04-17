@@ -4,8 +4,9 @@ import os, asyncio, src.logs as logs, multiprocessing, src.mockserver as mockser
 from dotenv import load_dotenv
 from src.files import Directory
 from interactions import Client, Intents
+from interactions.ext import prefixed_commands
 
-# TODO: in-discord logging, universal interaction logging, Backups, Bot restart / reload
+# TODO: in-discord logging, universal interaction logging, Backups, Bot restart / reload, git sync
 
 async def main():
     load_dotenv()
@@ -33,6 +34,8 @@ async def main():
         basic_logging = False,
         # logger = logger
         )
+    
+    prefixed_commands.setup(bot, default_prefix=['p!', 'P!'])
 
     # Create base folders
     Directory("./data/").create()

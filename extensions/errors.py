@@ -9,6 +9,8 @@ class Errors(Extension):
         self.client = client
         self.logger = logs.init_logger()
 
+    # TODO: Make this log traceback
+
     # @listen(disable_default_listeners=True)
     # async def on_command_error(self, error: CommandError):
     #     # cancel default interactions error msg

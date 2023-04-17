@@ -13,6 +13,7 @@ from interactions import (
     Embed
     )
 from interactions.api.events.internal import CommandCompletion
+from interactions.ext.prefixed_commands import PrefixedCommand
 import src.logs as logs
 from src.database import Config
 from src.colors import Color
@@ -31,7 +32,7 @@ class Logging(Extension):
         self.chat_logger = logs.init_logger("CHAT COMMAND")
         self.unknown_logger = logs.init_logger("UNKNOWN")
 
-    def get_command(self, ctx: BaseContext):
+    def get_slash_command(self, ctx: BaseContext):
         command = "/" +ctx.__dict__['_command_name']
 
         # TODO: Handle discord option types like channel, user, etc
@@ -42,10 +43,26 @@ class Logging(Extension):
 
         return command
 
+    def process_prefixed_command(self, event: CommandCompletion):
+        if "command" in event.ctx.__dict__:
+            if type(event.ctx.__dict__["command"]) == PrefixedCommand:
+                command = event.ctx.message.content
+                self.chat_logger.info(f"{event.ctx.user.username}#{event.ctx.user.discriminator} performed the prefixed command '{command}' in #{event.ctx.channel.name}")
+                return True
+        return False
+
     @listen()
     async def on_command_completion(self, event: CommandCompletion):
-        command = self.get_command(event.ctx)
-        self.slash_logger.info(command)
+
+        # Process if prefixed command
+        if self.process_prefixed_command(event):
+            return
+
+        # TODO: Add funcs to process other command types
+
+        # Process as slash command
+        command = self.get_slash_command(event.ctx)
+        self.slash_logger.info(f"{event.ctx.user.username}#{event.ctx.user.discriminator} performed the command '{command}' in #{event.ctx.channel.name}")
 
     ### /CONFIG LOGGING SET-CHANNEL ###
     @slash_command(
