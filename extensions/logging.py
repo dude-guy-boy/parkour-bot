@@ -83,6 +83,8 @@ class Logging(Extension):
         Config.set_config_parameter({"channel_id": str(channel.id)})
         await ctx.send(embed=Embed(description=f"Set logging channel to <#{channel.id}>", color=Color.GREEN))
 
+    # TODO: Add command to send log through discord
+
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
     Logging(bot)

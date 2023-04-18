@@ -131,7 +131,6 @@ class Paginator(standard_paginator.Paginator):
         
         return result
     
-    # TODO: Figure out why this isnt overriding
     async def send(self, ctx: Optional[Union[BaseContext, SlashContext]] = None, channel_id: Optional[int] = None, ephemeral: bool = False, author_id: Optional[int] = None) -> Message:
         """
         Send this paginator. Modified to allow ephemeral sending and sending to a specific channel

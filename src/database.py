@@ -46,7 +46,7 @@ class Config:
 
         db.update({"key": str(list(parameter)[0]), "value": parameter[list(parameter)[0]]}, query.key == str(list(parameter)[0]))
 
-# TODO: class Data:
+# TODO: class Data: actually test this
 class Data:
     def __get_db_and_query(self):
         '''
