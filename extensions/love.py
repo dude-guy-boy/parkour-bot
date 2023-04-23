@@ -1,6 +1,4 @@
-# template.py
-
-### This is a template extension ###
+# love.py
 
 from interactions import (
     Client,
@@ -47,12 +45,15 @@ class Love(Extension):
         love_value = str(a*b)
         love_value = int(love_value[1:3]) + 1
 
-        embed = Embed(color = 0xfc4242)
+        embed = Embed(color = self.rgb_to_hex(r = love_value*2.5))
         embed.add_field(name = "User1 💕", value = user_1.mention, inline = True)
         embed.add_field(name = "🤔 Amount 🤔", value = f"😱 {love_value}% 😱", inline = True)
         embed.add_field(name = "💕 User2", value = user_2.mention, inline = True)
 
         await ctx.send(embed=embed)
+
+    def rgb_to_hex(self, r = 0, g = 0, b = 0):
+        return int(f"{int(r):02x}{int(g):02x}{int(b):02x}", 16)
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
