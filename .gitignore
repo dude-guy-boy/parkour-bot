@@ -12,6 +12,7 @@ config/
 data/
 logs/
 *.code-workspace
+.DS_Store
 
 # Distribution / packaging
 .Python
