@@ -20,12 +20,15 @@ Parkour Bot's XP system is based on the completion of parkour courses and jumps.
 There are three types of parkour you can do to get XP. These are **Endurance**, **Onejump** and **Segmented**. In all of these types, difficulty ranges from very easy to extremely difficult to cater to players of all skill-levels.
 
 ![Linkcraft V](https://cdn.discordapp.com/attachments/794260795408121926/1101495139244970004/11.png)
+
 **Endurance** (also known as Rankup) is a parkour gamemode in which the player will progress through parkour that is part of a larger build. Common themes include scaled up arcades, household rooms, significant real world locations or structures, cities, and landscapes. This gamemode has no checkpoints and often contains so called "life/death" sections of parkour in which the player will lose significant progress if they fall. Endurance maps normally conclude with a "sky" section, which is life/death parkour right before the end of the map, which if failed will sometimes cause the player to fall all the way back to the start of the course.
 
 ![1bm Head Butterfly CREDIT: Baconerd](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExODJkOWU2ZDI1ZmYwZjJkZDViYzYzZDBmMGM2ZGI4MmYwNzZmZjM1OSZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/jNsvVJB4Ke0oxCdecG/giphy.gif)
+
 **Onejump** is a gamemode in which the player will attempt to land a single jump once. In most cases, the player will have a checkpoint set at specific coordinates at the start of the jump that they will perform a specific strategy from. The mouse movements and keyboard inputs become extremely precise and complex at the more difficult levels of this gamemode, which requires the player to have great consistency and control. The hardest of onejumps are possible by fractions of millimeters.
 
 ![Valor 4](https://cdn.discordapp.com/attachments/794260795408121926/1101496748842688632/134.png)
+
 **Segmented** courses are much like endurance courses, but they are sectioned into smaller portions using checkpoints. As such, segmented courses rarely contain "life/death" sections. These courses are often built in hallway or tower like structures, but sometimes in builds similar to endurance courses. The style and difficulty of the parkour in segmented courses usually lies somewhere between onejump and endurance.
 
 ### **Economy System**
