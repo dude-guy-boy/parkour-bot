@@ -1,11 +1,14 @@
 # **Parkour Bot**
+
+[![](https://dcbadge.vercel.app/api/server/YKWzC9Vxxv?)](https://discord.gg/YKWzC9Vxxv)
 [![Discord](https://img.shields.io/discord/793172726767550484?style=for-the-badge&color=5865F2&logo=discord&logoColor=white)](https://discord.gg/YKWzC9Vxxv)
+
 
 **NOTE:** This version of parkour bot is still in relatively early development, so many of the features listed below have not yet been implemented.
 
-TODO: Add pictures so its not so boring
+**TODO:** Add pictures so its not so boring
 
-TODO: Finish writing out the other stuff
+**TODO:** Finish writing out the other stuff
 
 ## **Summary**
 
@@ -16,13 +19,28 @@ Parkour Bot's XP system is based on the completion of parkour courses and jumps.
 
 There are three types of parkour you can do to get XP. These are **Endurance**, **Onejump** and **Segmented**. In all of these types, difficulty ranges from very easy to extremely difficult to cater to players of all skill-levels.
 
+![Linkcraft V](https://cdn.discordapp.com/attachments/794260795408121926/1101495139244970004/11.png)
 **Endurance** (also known as Rankup) is a parkour gamemode in which the player will progress through parkour that is part of a larger build. Common themes include scaled up arcades, household rooms, significant real world locations or structures, cities, and landscapes. This gamemode has no checkpoints and often contains so called "life/death" sections of parkour in which the player will lose significant progress if they fall. Endurance maps normally conclude with a "sky" section, which is life/death parkour right before the end of the map, which if failed will sometimes cause the player to fall all the way back to the start of the course.
 
+![1bm Head Butterfly CREDIT: Baconerd](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExODJkOWU2ZDI1ZmYwZjJkZDViYzYzZDBmMGM2ZGI4MmYwNzZmZjM1OSZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/jNsvVJB4Ke0oxCdecG/giphy.gif)
 **Onejump** is a gamemode in which the player will attempt to land a single jump once. In most cases, the player will have a checkpoint set at specific coordinates at the start of the jump that they will perform a specific strategy from. The mouse movements and keyboard inputs become extremely precise and complex at the more difficult levels of this gamemode, which requires the player to have great consistency and control. The hardest of onejumps are possible by fractions of millimeters.
 
+![Valor 4](https://cdn.discordapp.com/attachments/794260795408121926/1101496748842688632/134.png)
 **Segmented** courses are much like endurance courses, but they are sectioned into smaller portions using checkpoints. As such, segmented courses rarely contain "life/death" sections. These courses are often built in hallway or tower like structures, but sometimes in builds similar to endurance courses. The style and difficulty of the parkour in segmented courses usually lies somewhere between onejump and endurance.
 
 ### **Economy System**
+For each XP point a user gains, they also gain one coin in the economy system. Coins can then be spent on the server for bounties, cosmetics, perks, etc.
+
+This system has not yet been fully thought through, so will likely change a lot.
+
+The current plan:
+- Bounties can be placed on jump / map completions / strat finds
+    - Maybe allow them to be placed on other unrelated things too?
+    - 
+- Users can 'purchase' role icons as a cosmetic.
+    - they would be able to equip an icon with some command `/equip <icon-name>`, `/unequip`
+    - This is needed because if they have all roles for the purchased icons simultaneously it would always show the one from the top role.
+    - So it would give/take relevant roles when the command is used
 
 ## **Main Bot Features**
 Here are the main features of the bot!
@@ -36,7 +54,9 @@ Unfortunately this system is still flawed and the socket server does not consist
 New to this version of Parkour Bot is auto-sync. Auto-sync is a feature which sends HTTP requests to affiliated parkour servers using a RESTful companion plugin which responds with information about the courses and jumps that players have completed. This means that Parkour Bot can automatically detect when a player has completed a new course / jump, and add it to their completed list.
 
 ### **Parkour Dictionary and FAQ**
-Dictionary and FAQ
+Parkour Bot features a dictionary and FAQ system. Staff can add terms, their aliases and their definition to the dictionary, which users can then search for. If a term or alias that exists in the dictionary appears in the definition for another term, it is underlined to indicate that they can also check the definition for it.
+
+The FAQ system similarly allows staff to add and remove frequently asked questions that can then be searhed for using a command.
 
 ### **Leaderboards**
 
@@ -90,3 +110,6 @@ Parkour bot has an integrated system for managing server events.
 ### **Staff Application Handler**
 
 ### **Master Config & Data Storage System**
+
+### **Dynamic Help Command**
+The help command should show users only the commands they have permission to perform.
