@@ -1,6 +1,7 @@
 # bot.py
 
 import os, asyncio, src.logs as logs, multiprocessing, src.mockserver as mockserver
+import pathlib, os.path
 from dotenv import load_dotenv
 from src.files import Directory
 from interactions import Client, Intents
@@ -45,24 +46,21 @@ async def main():
     logger.info("Starting bot...")
 
     # Get a list of all extensions
-    extensions = [
-        module[:-3]
-        for module in os.listdir(f"{os.path.dirname(__file__)}/extensions")
-        if module not in ("__init__.py", "template.py") and module[-3:] == ".py"
-    ]
+    extensions = pathlib.Path(f"{os.path.dirname(__file__)}/extensions")
+    extensions = [{"name": path.stem, "ext-path": os.path.relpath(path=path, start="./").replace("/", ".")[:-3]} for path in extensions.rglob("*.py") if path.name not in ("__init__.py", "template.py")]
 
     # Load all extensions in list
-    if extensions != []:
-        logger.info(f"Importing {len(extensions)} extension(s): {', '.join(extensions)}")
+    if extensions:
+        logger.info(f"Importing {len(extensions)} extension(s): {', '.join([ext['name'] for ext in extensions])}")
     else:
         logger.warning("Could not import any extensions!")
 
     for ext in extensions:
         try:
-            bot.load_extension(f"extensions.{ext}")
-            logger.info(f"Loaded extension: {ext}")
+            bot.load_extension(ext['ext-path'])
+            logger.info(f"Loaded extension: {ext['name']}")
         except Exception as err:
-            logger.error(f"Could not load extension: {ext}")
+            logger.error(f"Could not load extension: {ext['name']}")
             print(err.with_traceback(None))
 
     # Start bot
