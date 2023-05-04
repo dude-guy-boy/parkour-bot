@@ -15,17 +15,12 @@ from interactions import (
     )
 import src.logs as logs
 from src.colors import Color
-import os.path as path
-from tinydb import TinyDB, Query
+from src.database import Config, Data
 
 class Template(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
-
-        # Uncomment if storing data
-        # self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
-        # self.user = Query()
 
     @slash_command(
         name="template-command",
