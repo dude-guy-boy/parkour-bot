@@ -119,6 +119,6 @@ class Data:
     def get_all_items(cls, table: str) -> list:
         '''Gets all items in a table'''
 
-        db, query = cls.__get_db_and_query(cls, table)
+        db, _ = cls.__get_db_and_query(cls, table)
 
         return db.all()
