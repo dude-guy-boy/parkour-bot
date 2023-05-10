@@ -13,17 +13,13 @@ from interactions import (
     )
 from src.custompaginator import Paginator
 import src.logs as logs
-import os.path as path
 from src.colors import Color
-from tinydb import TinyDB, Query
 from src.database import UserData
 
 class Todo(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
-        self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
-        self.user = Query()
 
     ### /TODO ADD ###
     @slash_command(
@@ -41,7 +37,6 @@ class Todo(Extension):
     async def todo_add(self, ctx: SlashContext, task):        
         # If user is not in todo db, add them
         todo_list = UserData.get_user(id=ctx.user.id, table="todo")
-        print(todo_list)
 
         # If task already on their list, say so
         for item in todo_list:
