@@ -16,6 +16,7 @@ import src.logs as logs
 import os.path as path
 from src.colors import Color
 from tinydb import TinyDB, Query
+from src.database import UserData
 
 class Todo(Extension):
     def __init__(self, client: Client):
@@ -23,42 +24,6 @@ class Todo(Extension):
         self.logger = logs.init_logger()
         self.users = TinyDB(f"./data/{path.basename(__file__)[:-3]}.json").table("users")
         self.user = Query()
-
-    # TODO: Maybe move these db functions to src to be used globally? (modify them)
-
-    def init_user(self, id):
-        '''Adds user to todo database if they are not already there'''
-        # If user is not in todo db, add them
-        if not self.users.search(self.user.id == int(id)):
-            self.users.insert({"id": int(id), "todo_list": [], "done_list": []})
-
-    def get_todo_list(self, id) -> list:
-        '''Returns the users todo list'''
-        
-        # Ensure user is in db
-        self.init_user(id)
-        
-        # Return their todo list
-        return self.users.search(self.user.id == int(id))[0]['todo_list']
-
-    def set_todo_list(self, todo_list: list, id):
-        '''Sets the users todo list to the provided list'''
-
-        self.users.update({"todo_list": todo_list}, self.user.id == int(id))
-
-    def get_done_list(self, id) -> list:
-        '''Returns the users done list'''
-        
-        # Ensure user is in db
-        self.init_user(id)
-        
-        # Return their done list
-        return self.users.search(self.user.id == int(id))[0]['done_list']
-
-    def set_done_list(self, done_list: list, id):
-        '''Sets the users done list to the provided list'''
-
-        self.users.update({"done_list": done_list}, self.user.id == int(id))
 
     ### /TODO ADD ###
     @slash_command(
@@ -75,7 +40,8 @@ class Todo(Extension):
     )
     async def todo_add(self, ctx: SlashContext, task):        
         # If user is not in todo db, add them
-        todo_list = self.get_todo_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
+        print(todo_list)
 
         # If task already on their list, say so
         for item in todo_list:
@@ -84,7 +50,7 @@ class Todo(Extension):
                 return
 
         todo_list.append(task)
-        self.set_todo_list(todo_list, ctx.user.id)
+        UserData.set_user(id=ctx.user.id, data=todo_list, table="todo")
 
         await ctx.send(embed=Embed(description=f"Added `{task}` to your todo list.", color=Color.GREEN))
 
@@ -103,7 +69,7 @@ class Todo(Extension):
         autocomplete=True
     )
     async def todo_remove(self, ctx: SlashContext, task):
-        todo_list = self.get_todo_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
 
         # If item not on their list, say so
         try:
@@ -112,7 +78,7 @@ class Todo(Extension):
             await ctx.send(embed=Embed(description = f"`{task}` is not on your todo list!", color = Color.RED))
             return
         
-        self.set_todo_list(todo_list, ctx.user.id)
+        UserData.set_user(id=ctx.user.id, data=todo_list, table="todo")
         await ctx.send(embed=Embed(description=f"Removed `{task}` from your todo list.", color=Color.GREEN))
 
     ### /TODO LIST ###
@@ -123,7 +89,7 @@ class Todo(Extension):
         sub_cmd_description="View your todo list",
     )
     async def todo_list(self, ctx: SlashContext):
-        todo_list = self.get_todo_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
         
         if not todo_list:
             await ctx.send(embed=Embed(description="Your todo list is empty!\nTo add something to it use: `/todo add <text>`", color=Color.RED))
@@ -146,12 +112,8 @@ class Todo(Extension):
         paginator.default_button_color = ButtonStyle.GRAY
         paginator.default_color = Color.GREEN
         paginator.default_title = "Your Todo List"
-        # paginator.back_button_emoji = '<'
 
         await paginator.send(ctx)
-        # await paginator.send(channel_id=1096378002591469689)
-
-        # await ctx.send(formatted_list)
 
     ### /TODO COMPLETED ###
     @slash_command(
@@ -161,7 +123,7 @@ class Todo(Extension):
         sub_cmd_description="View a list of all your completed tasks",
     )
     async def todo_completed(self, ctx: SlashContext):
-        done_list = self.get_done_list(ctx.user.id)
+        done_list = UserData.get_user(id=ctx.user.id, table="done")
         
         if not done_list:
             await ctx.send(embed=Embed(description="Your completed task list is empty!\nTo add something to it mark a task from your todo list as done, using: `/todo done <item>`", color=Color.RED))
@@ -173,17 +135,20 @@ class Todo(Extension):
         for idx, item in enumerate(done_list):
             formatted_list.append(f"{(len(done_list)-(idx)):02}: {item}")
 
-        formatted_list = "```" + "\n".join(formatted_list) + "```"
-
-        paginator = Paginator.create_from_string(self.bot, formatted_list, page_size=1000)
+        paginator = Paginator.create_from_string(
+            self.bot,
+            "\n".join(formatted_list),
+            num_lines=10,
+            page_size=1000,
+            prefix="```",
+            suffix="```",
+            allow_multi_user=True
+            )
         paginator.default_button_color = ButtonStyle.GRAY
         paginator.default_color = Color.GREEN
         paginator.default_title = "Your Completed Tasks"
-        # paginator.back_button_emoji = '<'
 
         await paginator.send(ctx)
-
-        # await ctx.send(formatted_list)
 
     ### /TODO DONE ###
     @slash_command(
@@ -200,8 +165,8 @@ class Todo(Extension):
         autocomplete = True
     )
     async def todo_done(self, ctx: SlashContext, task):
-        todo_list = self.get_todo_list(ctx.user.id)
-        done_list = self.get_done_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
+        done_list = UserData.get_user(id=ctx.user.id, table="done")
         
         # For tasks longer than 100 chars because
         # max length for autocomplete value is 100
@@ -217,11 +182,11 @@ class Todo(Extension):
             return
         
         # Set new list
-        self.set_todo_list(todo_list=todo_list, id=ctx.user.id)
+        UserData.set_user(id=ctx.user.id, data=todo_list, table="todo")
 
         # Add task to done list
         done_list.append(task)
-        self.set_done_list(done_list=done_list, id=ctx.user.id)
+        UserData.set_user(id=ctx.user.id, data=done_list, table="done")
 
         await ctx.send(embed=Embed(description = f"Marked task: `{task}` as done.", color=Color.GREEN))
 
@@ -233,21 +198,21 @@ class Todo(Extension):
         sub_cmd_description="Mark everything on your todo list as done",
     )
     async def todo_clear(self, ctx: SlashContext):
-        todo_list = self.get_todo_list(ctx.user.id)
-        done_list = self.get_done_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
+        done_list = UserData.get_user(id=ctx.user.id, table="done")
 
         # Add all to done list
         done_list.extend(todo_list)
 
-        self.set_todo_list(todo_list=[], id=ctx.user.id)
-        self.set_done_list(done_list=done_list, id=ctx.user.id)
+        UserData.set_user(id=ctx.user.id, data=[], table="todo")
+        UserData.set_user(id=ctx.user.id, data=done_list, table="done")
         await ctx.send(embed=Embed(description = f"Cleared your todo list!", color=Color.GREEN))
 
     ### Task autocomplete ###
     @todo_done.autocomplete("task")
     @todo_remove.autocomplete("task")
     async def todo_task_autocomplete(self, ctx: AutocompleteContext):
-        todo_list = self.get_todo_list(ctx.user.id)
+        todo_list = UserData.get_user(id=ctx.user.id, table="todo")
         choices = []
 
         for idx, task in enumerate(todo_list):

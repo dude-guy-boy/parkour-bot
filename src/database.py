@@ -2,123 +2,171 @@ import inspect
 from os import path
 from tinydb import TinyDB, Query
 
-class Config:
-    def __get_db_and_query(self):
+class BaseDataBase:
+    def _get_db_and_query(self, directory: str, table: str = "default"):
         '''
         Gets the TinyDB database and query using the name of the module
         as reference.
         '''
         
-        # Get the name of the extension modifying config
-        name = path.basename(inspect.getmodule(inspect.stack()[2][0]).__file__)[:-3]
+        # Get the name of the extension accessing the database
+        for thing in inspect.stack():
+            file = inspect.getmodule(thing[0]).__file__
+            if "extensions" in file:
+                name = path.basename(file)[:-3]
+                break
 
-        if(name == "database"):
-            name = path.basename(inspect.getmodule(inspect.stack()[3][0]).__file__)[:-3]
-
-        db = TinyDB(f"./config/{name}.json").table("config")
+        db = TinyDB(f"./{directory}/{name}.json").table(table)
         query = Query()
 
         return db, query
+    
+    def _init_item(self, key, value, directory: str, table: str = "default"):
+        '''Initialises the item if it does not yet exist'''
 
-    @classmethod
-    def init_config_parameter(cls, parameter: dict):
-        '''Initialises the config parameter if it does not yet exist'''
+        db, query = self._get_db_and_query(self, directory, table)
 
-        db, query = cls.__get_db_and_query(cls)
+        # If item doesnt exist, create it
+        if not db.search(query.key == key):
+            db.insert({"key": key, "value": value})
 
-        # If parameter is not in config, insert it
-        if not db.search(query.key == str(list(parameter)[0])):
-            db.insert({"key": str(list(parameter)[0]), "value": parameter[list(parameter)[0]]})
+    def _get_item(self, key, directory: str, table: str = "default"):
+        '''Gets an item'''
 
+        db, query = self._get_db_and_query(self, directory, table)
+
+        # Return the item
+        return db.search(query.key == key)
+    
+    def _set_item(self, key, value, directory: str, table: str = "default"):
+        '''Sets an item'''
+
+        db, query = self._get_db_and_query(self, directory, table)
+
+        self._init_item(self, key=key, value=value, table=table, directory=directory)
+
+        db.update({"key": key, "value": value}, query.key == key)
+
+class Config(BaseDataBase):
     @classmethod
     def get_config_parameter(cls, key: str) -> list:
         '''Gets a config parameter'''
 
-        db, query = cls.__get_db_and_query(cls)
-
-        # Return the config item
-        return db.search(query.key == str(key))[0]['value']
+        return cls._get_item(cls, key=key, directory="config")[0]['value']
 
     @classmethod
-    def set_config_parameter(cls, parameter: dict):
+    def set_config_parameter(cls, key: str, value):
         '''Sets a config parameter'''
 
-        db, query = cls.__get_db_and_query(cls)
+        cls._set_item(cls, key=key, value=value, directory="config")
 
-        cls.init_config_parameter(parameter)
-
-        db.update({"key": str(list(parameter)[0]), "value": parameter[list(parameter)[0]]}, query.key == str(list(parameter)[0]))
-
-class Data:
-    def __get_db_and_query(self, table: str):
-        '''
-        Gets the TinyDB database and query using the name of the module
-        as reference.
-        '''
-        
-        # Get the name of the extension modifying config
-        name = path.basename(inspect.getmodule(inspect.stack()[2][0]).__file__)[:-3]
-
-        if(name == "database"):
-            name = path.basename(inspect.getmodule(inspect.stack()[3][0]).__file__)[:-3]
-
-        db = TinyDB(f"./data/{name}.json").table(table)
-        query = Query()
-
-        return db, query
-
+class Data(BaseDataBase):
     @classmethod
-    def init_item(cls, table: str, item: dict):
-        '''Initialises the data item if it does not yet exist'''
-
-        db, query = cls.__get_db_and_query(cls, table)
-
-        # If item is not in data, insert it
-        if not db.search(query.key == str(list(item)[0])):
-            db.insert({"key": str(list(item)[0]), "value": item[list(item)[0]]})
-
-    @classmethod
-    def get_item(cls, table: str, key: str) -> list:
+    def get_data_item(cls, key: str, table: str = "default") -> list:
         '''Gets a data item'''
 
-        db, query = cls.__get_db_and_query(cls, table)
-
-        # Return the data item
-        return db.search(query.key == str(key))[0]['value']
+        return cls._get_item(cls, key=key, directory="data", table=table)[0]['value']
 
     @classmethod
-    def get_item_from_start(cls, table: str, key_start: str) -> list:
+    def set_data_item(cls, key: str, value, table: str = "default"):
+        '''Sets a data item'''
+
+        cls._set_item(cls, key=key, value=value, directory="data", table=table)
+
+    @classmethod
+    def get_item_from_start(cls, key_start: str, table: str = "default") -> list:
         '''Gets a data item. Returns key, value'''
 
-        db, query = cls.__get_db_and_query(cls, table)
+        db, query = cls._get_db_and_query(cls, directory="data", table=table)
 
         # Return the data item
         return db.search(query.key.test(lambda s: str(s).startswith(str(key_start))))[0]['key'], db.search(query.key.test(lambda s: str(s).startswith(str(key_start))))[0]['value']
 
     @classmethod
-    def set_item(cls, table: str, item: dict):
-        '''Sets a data item'''
-
-        db, query = cls.__get_db_and_query(cls, table)
-
-        cls.init_item(table, item)
-
-        db.update({"key": str(list(item)[0]), "value": item[list(item)[0]]}, query.key == str(list(item)[0]))
-
-    @classmethod
-    def delete_item(cls, table: str, item: dict):
+    def delete_item(cls, item: dict, table: str = "default",):
         '''Deletes a data item'''
 
-        db, query = cls.__get_db_and_query(cls, table)
+        db, query = cls._get_db_and_query(cls, directory="data", table=table)
 
         record = db.search(query.key == item['key'] and query.value == item['value'])
 
         db.remove(doc_ids=[record[0].doc_id])
 
     @classmethod
-    def get_all_items(cls, table: str) -> list:
+    def get_all_items(cls, table: str = "default") -> list:
         '''Gets all items in a table'''
 
-        db, _ = cls.__get_db_and_query(cls, table)
+        db, _ = cls._get_db_and_query(cls, directory="data", table=table)
 
         return db.all()
+    
+# TODO: Do this
+class UserData(Data):
+    @classmethod
+    def get_user(cls, id, table: str = "default"):
+        '''Gets a user'''
+        try:
+            return cls.get_data_item(key=str(id), table=table)
+        except:
+            cls._init_item(cls, key=str(id), value=[], directory="data", table=table)
+            return cls.get_data_item(key=str(id), table=table)
+
+    @classmethod
+    def set_user(cls, id, data, table: str = "default"):
+        '''Sets a users data'''
+        cls.set_data_item(key=str(id), value=data, table=table)
+
+    @classmethod
+    def delete_user(cls, id, table):
+        '''Deletes a user'''
+        user = cls.get_user(id, table=table)
+
+        cls.delete_item(item=user, table=table)
+
+    # @classmethod
+    # def get_item(cls, key: str, table: str = "default") -> list:
+    #     '''Gets a user data item'''
+    #     db, query = cls._get_db_and_query(cls, table)
+
+    #     # Return the data item
+    #     thing = db.search(query.key == str(key))#[0]['value']
+    #     print(f"Thing gotten = {thing}")
+    #     return db.search(query.key == str(key))[0]['value']
+        
+
+    # @classmethod
+    # def get_item_from_start(cls, key_start: str, table: str = "default") -> list:
+    #     '''Gets a data item. Returns key, value'''
+
+    #     db, query = cls._get_db_and_query(cls, table)
+
+    #     # Return the data item
+    #     return db.search(query.key.test(lambda s: str(s).startswith(str(key_start))))[0]['key'], db.search(query.key.test(lambda s: str(s).startswith(str(key_start))))[0]['value']
+
+    # @classmethod
+    # def set_item(cls, user: str, data, table: str = "default"):
+    #     '''Sets a user data item'''
+
+    #     db, query = cls._get_db_and_query(cls, table)
+
+    #     cls.init_item(item={user: data}, table=table)
+
+    #     db.update({"key": str(user), "value": data}, query.key == str(user))
+
+    # @classmethod
+    # def delete_item(cls, item: dict, table: str = "default",):
+    #     '''Deletes a data item'''
+
+    #     db, query = cls._get_db_and_query(cls, table)
+
+    #     record = db.search(query.key == item['key'] and query.value == item['value'])
+
+    #     db.remove(doc_ids=[record[0].doc_id])
+
+    # @classmethod
+    # def get_all_items(cls, table: str = "default") -> list:
+    #     '''Gets all items in a table'''
+
+    #     db, _ = cls._get_db_and_query(cls, table)
+
+    #     return db.all()

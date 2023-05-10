@@ -36,7 +36,7 @@ class Dictionary(Extension):
     )
     async def define_command(self, ctx: SlashContext, entry: str):
         try:
-            definition = Data.get_item(table="dictionary", key=entry)['definition']
+            definition = Data.get_data_item(table="dictionary", key=entry)['definition']
         except:
             await ctx.send(embed=Embed(description="Sorry, that entry doesn't exist!", color=Color.RED))
             return
@@ -44,6 +44,7 @@ class Dictionary(Extension):
         other_defined_terms = []
 
         dictionary = Data.get_all_items(table="dictionary")
+        print(f"Dictionary: {dictionary}")
         for item in dictionary:
             # Add all defined dictionary entries to a list
             if (pos := definition.find(item['key'])) != -1:
@@ -119,7 +120,7 @@ class Dictionary(Extension):
         except:
             pass
 
-        Data.set_item(table="dictionary", item={entry: {"aliases": aliases, "definition": definition}})
+        Data.set_data_item(table="dictionary", key=entry, value={"aliases": aliases, "definition": definition})
         
         if type(aliases) == list:
             aliases = ', '.join(aliases)
@@ -139,7 +140,7 @@ class Dictionary(Extension):
     )
     async def definition_remove_command(self, ctx: SlashContext, entry: str):
         try:
-            definition = Data.get_item(table="dictionary", key=entry)
+            definition = Data.get_data_item(table="dictionary", key=entry)
         except:
             await ctx.send(embed=Embed(description="Sorry, that entry doesn't exist!", color=Color.RED))
             return
@@ -152,6 +153,7 @@ class Dictionary(Extension):
     @definition_remove_command.autocomplete("entry")
     async def faq_question_autocomplete(self, ctx: AutocompleteContext):
         entries = Data.get_all_items("dictionary")
+        print(f"Entries: {entries}")
         choices = []
 
         for item in entries:

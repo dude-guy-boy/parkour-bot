@@ -60,7 +60,7 @@ class FAQ(Extension):
         opt_type=OptionType.STRING
     )
     async def faq_add_command(self, ctx: SlashContext, question: str, answer: str):
-        Data.set_item(table="faq", item={question: answer})
+        Data.set_data_item(table="faq", key=question, value=answer)
         await ctx.send(embed=Embed(description=f"Added FAQ `{question}` with answer `{answer}`.", color=Color.GREEN))
 
     ### /FAQ-REMOVE ###
