@@ -44,7 +44,6 @@ class Dictionary(Extension):
         other_defined_terms = []
 
         dictionary = Data.get_all_items(table="dictionary")
-        print(f"Dictionary: {dictionary}")
         for item in dictionary:
             # Add all defined dictionary entries to a list
             if (pos := definition.find(item['key'])) != -1:
@@ -153,7 +152,6 @@ class Dictionary(Extension):
     @definition_remove_command.autocomplete("entry")
     async def faq_question_autocomplete(self, ctx: AutocompleteContext):
         entries = Data.get_all_items("dictionary")
-        print(f"Entries: {entries}")
         choices = []
 
         for item in entries:
