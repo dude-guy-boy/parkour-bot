@@ -48,7 +48,7 @@ class BaseDataBase:
 
         db, query = self._get_db_and_query(self, directory, table, name)
 
-        self._init_item(self, key=key, value=value, table=table, directory=directory)
+        self._init_item(self, key=key, value=value, table=table, directory=directory, name=name)
 
         db.update({"key": key, "value": value}, query.key == key)
 
