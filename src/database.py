@@ -100,7 +100,6 @@ class Data(BaseDataBase):
 
         return db.all()
     
-# TODO: Do this
 class UserData(Data):
     @classmethod
     def get_user(cls, id, table: str = "default"):
