@@ -2,21 +2,18 @@ import json, socket, struct, random, os, sys, requests
 from threading import Thread
 from datetime import datetime, timedelta
 import src.logs as logs
-# import words
+import lookups.words
+from src.database import Data
+from src.mojang import MojangAPI
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
-# import json_management as j
-
 class SocketServer:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.logger = logs.init_logger()
-
-    # TODO: Figure out server timeout thing
-    # TODO: Finish reimplementing
 
     def on_new_client(self, client_socket: socket.socket, addr):
         # Get data from connection
@@ -25,111 +22,105 @@ class SocketServer:
         except:
             return
 
-        try:
-            # Get packet type
-            (_, i) = self.read_varint(data, 0)
-            (packetID, i) = self.read_varint(data, i)
+        # Get packet type
+        (_, i) = self.read_varint(data, 0)
+        (packetID, i) = self.read_varint(data, i)
 
-            if packetID == 0:
-                # Do some stuff idk
-                (_, i) = self.read_varint(data, i)
-                (_, i) = self.read_utf(data, i)
-                (_, i) = self.read_ushort(data, i)
-                (state, i) = self.read_varint(data, i)
-
-                # If pinged in server list, show motd and other normal server list info
-                if state == 1:                    
-                    motd = {}
-                    motd["version"] = {}
-                    motd["version"]["name"] = ""
-                    motd["version"]["protocol"] = 47
-                    motd["players"] = {}
-                    motd["players"]["max"] = 0
-                    motd["players"]["online"] = 0
-                    motd["players"]["sample"] = []
-                    motd["description"] = {
-                        "text": "§7Verify Your Account!"}
-
-                    self.write_response(client_socket, json.dumps(motd))
-
-                # If connection is attempted, send kick message
-                elif state == 2:
-                    name = ""
-                    if len(data) != i:
-                        (_, i) = self.read_varint(data, i)
-                        (_, i) = self.read_varint(data, i)
-                        (name, i) = self.read_utf(data, i)
-
-                    if(name):
-                        # Log join attempt
-                        self.logger.info(f"{name} joined the verification server.")
-
-                        # pending = j.json_get_var(
-                        #     "./data/verification.json", "pending")
-                        # verified = j.json_get_var(
-                        #     "./data/verification.json", "verified")
-                        # 
-                        # if(not pending):
-                        #     pending = []
-
-                        # if(not verified):
-                        #     verified = []
-
-                        # Check if user is already verified
-                        # for user in verified:
-                        #     if(verified[user]['username'] == name):
-                        #         self.write_response(client_socket, json.dumps(
-                        #             {"text": f"§rThis account has already been verified!\nIf you wish to unlink it, use §a/unverify §rin §a#bot-commands§r."}))
-                        #         return
-
-                        # Check if user is already pending
-                        # for user in pending:
-                        #     if(name in user.keys()):
-                        #         generation_time = datetime.strptime(
-                        #             user[name]['time'], "%m/%d/%Y, %H:%M:%S")
-                        #         current_time = datetime.utcnow()
-
-                        #         difference = current_time - generation_time
-
-                        #         # If longer than an hour, break and generate new code
-                        #         if((difference.seconds % 3600) // 60 > 60):
-                        #             pending.remove(user)
-                        #             break
-
-                        #         self.write_response(client_socket, json.dumps(
-                        #             {"text": f"§rVerify your Minecraft Parkour Community Account!\nYour code: §a{user[name]['code']}\n§rUse §a/verify <code> §rin §a#bot-commands §rto complete verification.\nYour code will expire in §a{60-((difference.seconds % 3600) // 60)} minutes §rand §a{60-(difference.seconds % 60)} seconds§r!"}))
-                        #         return
-
-                        self.write_response(client_socket, json.dumps(
-                            {"text": f"§rVerify your Minecraft Parkour Community Account!"}))
-                        return
-
-                        data = requests.get(
-                            f"https://api.mojang.com/users/profiles/minecraft/{name}").json()
-
-                        # If user is not verified yet, generate their code
-                        code = f"{random.choice(words.ADJECTIVES).capitalize()} {random.choice(words.NAMES).capitalize()} {random.choice(words.ACTIONS)} {random.choice(words.NAMES).capitalize()} {random.choice(words.TIMES)}"
-                        current_time = datetime.utcnow().strftime("%m/%d/%Y, %H:%M:%S")
-                        mins = 59
-                        seconds = 59
-
-                        # Override time if theyre pending already
-
-                        # Add them to pending
-                        pending.append({data['name']: {"id": data['id'], "code": code, "time": current_time}})
-                        j.json_set_var("./data/verification.json", "pending", pending)
-
-                        self.write_response(client_socket, json.dumps(
-                            {"text": f"§rVerify your Minecraft Parkour Community Account!\nYour code: §a{code}\n§rUse §a/verify <code> §rin §a#bot-commands §rto complete verification.\nYour code will expire in §a{mins} minutes §rand §a{seconds} seconds§r!"}))
-                    else:
-                        self.logger.info("Someone tried to join the verification server")
-                        self.write_response(client_socket, json.dumps(
-                        {"text": "§cError: Please try again\n§cIf the issue continues, contact staff to manually verify you."}))
-
-        except (TypeError, IndexError):
-            self.logger.warning("Received invalid data")
+        if packetID != 0:
             return
 
+        # Do some stuff idk
+        (_, i) = self.read_varint(data, i)
+        (_, i) = self.read_utf(data, i)
+        (_, i) = self.read_ushort(data, i)
+        (state, i) = self.read_varint(data, i)
+
+        # If pinged in server list, show motd and other normal server list info
+        if state == 1:
+            motd = {}
+            motd["version"] = {}
+            motd["version"]["name"] = ""
+            motd["version"]["protocol"] = 47
+            motd["players"] = {}
+            motd["players"]["max"] = 0
+            motd["players"]["online"] = 0
+            motd["players"]["sample"] = []
+            motd["description"] = {
+                "text": "§7Verify Your Account!"}
+
+            self.write_response(client_socket, json.dumps(motd))
+            return
+        
+        # Connection has been attempted, send verification code and related info
+        name = ""
+        if len(data) != i:
+            (_, i) = self.read_varint(data, i)
+            (_, i) = self.read_varint(data, i)
+            (name, i) = self.read_utf(data, i)
+
+        # If cant get connecting players username for some reason
+        if not name:
+            self.logger.info("An unknown user failed to join the verification server.")
+
+            self.write_response(client_socket, json.dumps(
+                {"text": "§cError: Please try again\n§cIf the issue persists, please contact staff to manually verify you."}))
+            
+            return
+
+        time = datetime.utcnow()
+        player_uuid = MojangAPI.get_uuid_from_name(name)
+
+        self.logger.info(f"{name} ({player_uuid}) joined the verification server.")
+
+        #If user is verified, say so and tell them how they can unverify
+        try:
+            user = Data.get_data_item(key=player_uuid, table="verified", name="verification")
+            self.write_response(client_socket, json.dumps(
+                                {"text": f"§rThis account has already been verified!\n" +
+                                 "If you wish to unlink it, use §a/unverify §rin §a#bot-commands§r.\n" +
+                                 "If you are having trouble doing this or believe this is a mistake, please contact staff."}))
+            return
+        except:
+            pass
+
+        # Check if user has a pending code
+        try:
+            user = Data.get_data_item(key=player_uuid, table="pending", name="verification")
+            generation_time = datetime.strptime(user['time'], "%m/%d/%Y, %H:%M:%S")
+
+            difference = time - generation_time
+
+            # If greater than an hour
+            if difference.total_seconds() > 3600:
+                Data.delete_item(item=user, table="pending", name="verification")
+            else:
+                # User is still pending, display their existing code and time remaining
+
+                minutes, seconds = divmod(difference.total_seconds(), 60)
+
+                self.write_response(client_socket, json.dumps(
+                {"text": (f"§rLink your MC account!\n" +
+                        f"Your code: §a{user['phrase']}\n" +
+                        "§rUse §a/verify <code> §rin §a#bot-commands §rto complete verification.\n" +
+                        f"Your code will expire in §a{59-int(minutes)} minutes" +
+                        f" §rand §a{59-int(seconds)} seconds§r!")}))
+                return
+        except:
+            pass
+
+        phrase = (random.choice(lookups.words.ADJECTIVES).capitalize() + ' ' +
+                    random.choice(lookups.words.NAMES).capitalize() + ' ' +
+                    random.choice(lookups.words.ACTIONS) + ' ' +
+                    random.choice(lookups.words.NAMES).capitalize() + ' ' +
+                    random.choice(lookups.words.TIMES))
+        
+        Data.set_data_item(key=player_uuid, value={"time": time.strftime("%m/%d/%Y, %H:%M:%S"), "phrase": phrase}, table="pending", name="verification")
+        self.write_response(client_socket, json.dumps(
+            {"text": (f"§rLink your MC account!\n" +
+                        f"Your code: §a{phrase}\n" +
+                        "§rUse §a/verify <code> §rin §a#bot-commands §rto complete verification.\n" +
+                        "Your code will expire in §a59 minutes §rand §a59 seconds§r!")}))
+                
     def write_response(self, client_socket, response):
         response_array = bytearray()
         self.write_varint(response_array, 0)
