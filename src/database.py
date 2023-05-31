@@ -16,6 +16,10 @@ class BaseDataBase:
                 name = path.basename(file)[:-3]
                 break
 
+            if "src" and not "database" in file:
+                name = path.basename(file)[:-3]
+                break
+
         db = TinyDB(f"./{directory}/{name}.json").table(table)
         query = Query()
 
