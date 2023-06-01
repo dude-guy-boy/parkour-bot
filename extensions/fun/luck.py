@@ -34,7 +34,7 @@ class Luck(Extension):
         self.save_luck_cache.start()
         self.luck_cache = {}
 
-    @Task.create(IntervalTrigger(seconds=10))
+    @Task.create(IntervalTrigger(minutes=5))
     async def save_luck_cache(self):
         self.logger.info("Saving Luck Cache")
 
