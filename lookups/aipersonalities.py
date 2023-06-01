@@ -1,0 +1,1 @@
+personalities = ["cowboy", "gen z", "surfer dude", "drunk dude", "comedian", "emoji addict", "gangster", "elderly man trying to be hip"]
