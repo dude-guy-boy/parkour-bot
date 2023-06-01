@@ -44,6 +44,7 @@ class Verification(Extension):
         Config.set_config_parameter("verified_role_id", value=role.id)
         await ctx.send(embed=Embed(description=f"Set the verified role to: {role.mention}", color=Color.GREEN))
 
+    ### /VERIFY code ###
     @slash_command(
         name="verify",
         description="Link your minecraft account!"
@@ -90,6 +91,7 @@ class Verification(Extension):
         
         await ctx.send(embed=Embed(description="That code could not be found!", color=Color.RED), ephemeral=True)
 
+    ### /UNVERIFY ###
     @slash_command(
         name="unverify",
         description="Unlink your minecraft account"
@@ -123,6 +125,7 @@ class Verification(Extension):
         Data.delete_item(item={"key": str(ctx.author.id), "value": user}, table="verified")
         await ctx.edit(message=confirmation_message, embed=Embed(description=f"Unverified you from `{user['username']}`", color=Color.RED), components=[])
 
+    ### /MANUAL-VERIFY user username ###
     @slash_command(
         name="manual-verify",
         description="Staff command to manually verify a user"
@@ -154,6 +157,7 @@ class Verification(Extension):
             Data.set_data_item(key=str(user.id), value={"uuid": uuid, "username": username}, table="verified")
             await ctx.send(embed=Embed(description=f"Verified {user.mention} as `{username}`", color=Color.GREEN))
 
+    ### /MANUAL-UNVERIFY user ###
     @slash_command(
         name="manual-unverify",
         description="Staff command to manually unverify a user"
