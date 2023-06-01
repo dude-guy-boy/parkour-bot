@@ -66,7 +66,6 @@ class Luck(Extension):
 
         # Calculate message luck
         random_number = randint(0, 1000000000000)
-        random_number = 1000000000
 
         luck_power = 0
 
@@ -119,6 +118,8 @@ class Luck(Extension):
 
     # TODO: Add command that scans all channels to see which have perms for everyone to view.
     # Channels not on this list should have the content listed as blocked
+
+    # TODO: Luck profiles
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
