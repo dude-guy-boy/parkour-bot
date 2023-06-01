@@ -1,6 +1,6 @@
 import json, socket, struct, random, os, sys, requests
 from threading import Thread
-from datetime import datetime, timedelta
+from datetime import datetime
 import src.logs as logs
 import lookups.words
 from src.database import Data
@@ -73,15 +73,15 @@ class SocketServer:
         self.logger.info(f"{name} ({player_uuid}) joined the verification server.")
 
         #If user is verified, say so and tell them how they can unverify
-        try:
-            user = Data.get_data_item(key=player_uuid, table="verified", name="verification")
-            self.write_response(client_socket, json.dumps(
-                                {"text": f"§rThis account has already been verified!\n" +
-                                 "If you wish to unlink it, use §a/unverify §rin §a#bot-commands§r.\n" +
-                                 "If you are having trouble doing this or believe this is a mistake, please contact staff."}))
-            return
-        except:
-            pass
+        verified_list = Data.get_all_items(table="verified", name="verification")
+
+        for item in verified_list:
+            if item['value']['uuid'] == player_uuid:
+                self.write_response(client_socket, json.dumps(
+                                    {"text": f"§rThis account has already been verified!\n" +
+                                    "If you wish to unlink it, use §a/unverify §rin §a#bot-commands§r.\n" +
+                                    "If you are having trouble doing this or believe this is a mistake, please contact staff."}))
+                return
 
         # Check if user has a pending code
         try:
