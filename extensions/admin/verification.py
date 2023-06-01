@@ -40,6 +40,9 @@ class Verification(Extension):
         Config.set_config_parameter("verified_role_id", value=role.id)
         await ctx.send(embed=Embed(description=f"Set the verified role to: {role.mention}", color=Color.GREEN))
 
+    # TODO: Add manual verification commands
+    # TODO: Add /verify command for users
+
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
     Verification(bot)
