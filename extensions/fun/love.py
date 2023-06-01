@@ -11,7 +11,7 @@ from interactions import (
     Member
     )
 import src.logs as logs
-from src.colors import Color
+from lookups.colors import Color
 
 class Love(Extension):
     def __init__(self, client: Client):

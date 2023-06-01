@@ -14,7 +14,7 @@ from interactions import (
     AutocompleteContext
     )
 import src.logs as logs
-from src.colors import Color
+from lookups.colors import Color
 from src.database import Config, Data
 
 class Template(Extension):

@@ -13,7 +13,7 @@ from interactions import (
     )
 from src.custompaginator import Paginator
 import src.logs as logs
-from src.colors import Color
+from lookups.colors import Color
 from src.database import UserData
 
 class Todo(Extension):

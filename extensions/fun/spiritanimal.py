@@ -9,7 +9,7 @@ from interactions import (
     )
 from interactions.ext.prefixed_commands import prefixed_command, PrefixedContext
 import src.logs as logs
-from src.colors import Color
+from lookups.colors import Color
 from lookups.animals import Animals
 from math import floor
 

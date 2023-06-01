@@ -12,7 +12,7 @@ from interactions import (
     AutocompleteContext
     )
 import src.logs as logs
-from src.colors import Color
+from lookups.colors import Color
 import os.path as path
 from src.database import Data
 

@@ -16,7 +16,7 @@ from interactions.api.events.internal import CommandCompletion
 from interactions.ext.prefixed_commands import PrefixedCommand
 import src.logs as logs
 from src.database import Config
-from src.colors import Color
+from lookups.colors import Color
 
 class Logging(Extension):
     def __init__(self, client: Client):
