@@ -1,3 +1,7 @@
+# luckreference.py
+
+# Reference dict containing information about each level of luck
+
 powers = {
         3: {
             "chance": 1000,

@@ -1,3 +1,7 @@
+# colors.py
+
+# Standard colours for the bot
+
 class Color:
     YORANGE = 0xde992a
     WHITE = 0xffffff
