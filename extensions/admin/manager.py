@@ -9,15 +9,19 @@ from interactions import (
     OptionType,
     Embed,
     ButtonStyle,
-    AutocompleteContext
+    AutocompleteContext,
+    File as InteractionsFile
     )
 import src.logs as logs
 from lookups.colors import Color
-from src.database import Config, Data
+from src.database import Data
+from src.files import File, Directory
+from datetime import datetime
 from os import execl, kill
 from sys import executable, argv
 from signal import SIGKILL
 from git import Repo
+import shutil
 
 class Manager(Extension):
     def __init__(self, client: Client):
@@ -30,6 +34,20 @@ class Manager(Extension):
     # Force backup
     # Get backup
     # Get logs
+
+    ### /BACKUP-NOW ###
+    @slash_command(
+        name="bot",
+        description="base bot command",
+        sub_cmd_name="backup",
+        sub_cmd_description="Saves a new backup of the bot"
+    )
+    async def bot_backup(self, ctx: SlashContext):
+        # Do backup
+        backup = self.do_backup()
+
+        # Send backup
+        await ctx.send(file=InteractionsFile(backup))
 
     ### /BOT RESTART ###
     @slash_command(
@@ -89,6 +107,34 @@ class Manager(Extension):
 
         # Restarts bot
         execl(executable, *([executable]+argv))
+
+    def do_backup(self):
+        time = datetime.utcnow()
+        backup_filepath = f'./backups/today/{time.strftime("%d-%m-%Y_%H-%M")}'
+
+        # Create backup directories if they don't exist
+        backups = Directory("./backups").create()
+        today = Directory("./backups/today").create()
+        this_week = Directory("./backups/this_week").create()
+        older = Directory("./backups/older").create()
+
+        # Make folder in backups directory for new backup
+        temp_dir = Directory(backup_filepath)
+        temp_dir.create()
+
+        # Copy config & data folders into it
+        shutil.copytree('./data', f"{backup_filepath}/data", ignore=shutil.ignore_patterns('images'))
+        shutil.copytree('./config', f"{backup_filepath}/config")
+
+        # Compress it and delete old folder
+        shutil.make_archive(backup_filepath, 'zip', backup_filepath)
+        temp_dir.delete()
+
+        # Log
+        self.logger.info(f"Created a new backup: '{backup_filepath}.zip'")
+        
+        # Return the backup
+        return backup_filepath + ".zip"
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
