@@ -114,7 +114,7 @@ When you lose a game, all unexplored tiles will be revealed in gray, and the exp
   <img src="https://cdn.discordapp.com/attachments/794260795408121926/1102050448728412190/Screenshot_2023-04-30_at_11.54.57_am.png"height=300 style="border-radius:8px"/>
 </p>
 
-When you win a game, the mines you avoided will all apear green, and you can click any of them to start a new game.
+When you win a game, the mines you avoided will all appear green, and you can click any of them to start a new game.
 
 <p align="center">
   <img src="https://cdn.discordapp.com/attachments/794260795408121926/1102051846757027900/Screenshot_2023-04-30_at_12.00.30_pm.png"height=300 style="border-radius:8px"/>
