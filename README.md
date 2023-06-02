@@ -164,6 +164,7 @@ Parkour Bot contains several useful administrative features
 Parkour bot has an integrated system for managing server events. 
 
 ### **Bot Manager**
+The bot manager allows the bot to restart itself from discord, update itself from github and create regular backups.
 
 ### **Logging System**
 
