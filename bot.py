@@ -4,6 +4,7 @@ import os, asyncio, src.logs as logs, multiprocessing, src.mockserver as mockser
 import pathlib, os.path
 from dotenv import load_dotenv
 from src.files import Directory
+from src.database import Data
 from interactions import Client, Intents
 from interactions.ext import prefixed_commands
 
@@ -78,3 +79,6 @@ if __name__ == "__main__":
     # Start processes
     server_process.start()
     bot_process.start()
+
+    # Set the server process id so that it can be restarted whenever the whole bot is restarted
+    Data.set_data_item(key="server_process_id", value=server_process.pid, name="manager")
