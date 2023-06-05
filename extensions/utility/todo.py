@@ -3,13 +3,13 @@
 from interactions import (
     Client,
     Extension,
-    slash_command,
     slash_option,
     SlashContext,
     OptionType,
     Embed,
     ButtonStyle,
-    AutocompleteContext
+    AutocompleteContext,
+    SlashCommand
     )
 from src.custompaginator import Paginator
 import src.logs as logs
@@ -21,10 +21,11 @@ class Todo(Extension):
         self.client = client
         self.logger = logs.init_logger()
 
+    # Todo base command
+    todo = SlashCommand(name="todo", description="todo base command")
+
     ### /TODO ADD ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="add",
         sub_cmd_description="Add a task to your todo list",
     )
@@ -50,9 +51,7 @@ class Todo(Extension):
         await ctx.send(embed=Embed(description=f"Added `{task}` to your todo list.", color=Color.GREEN))
 
     ### /TODO REMOVE ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="remove",
         sub_cmd_description="Remove a task from your todo list without marking it as done"
     )
@@ -77,9 +76,7 @@ class Todo(Extension):
         await ctx.send(embed=Embed(description=f"Removed `{task}` from your todo list.", color=Color.GREEN))
 
     ### /TODO LIST ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="list",
         sub_cmd_description="View your todo list",
     )
@@ -111,9 +108,7 @@ class Todo(Extension):
         await paginator.send(ctx)
 
     ### /TODO COMPLETED ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="completed",
         sub_cmd_description="View a list of all your completed tasks",
     )
@@ -146,9 +141,7 @@ class Todo(Extension):
         await paginator.send(ctx)
 
     ### /TODO DONE ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="done",
         sub_cmd_description="Mark something on your todo list as done",
     )
@@ -186,9 +179,7 @@ class Todo(Extension):
         await ctx.send(embed=Embed(description = f"Marked task: `{task}` as done.", color=Color.GREEN))
 
     ### /TODO CLEAR ###
-    @slash_command(
-        name="todo",
-        description="Todo base",
+    @todo.subcommand(
         sub_cmd_name="clear",
         sub_cmd_description="Mark everything on your todo list as done",
     )
