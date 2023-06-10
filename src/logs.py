@@ -5,23 +5,45 @@ from datetime import datetime
 from src.files import Directory
 from src.database import Config
 from os import path
-from interactions import Client, EmbedAuthor, SlashContext, Embed
+from interactions import (
+        Client,
+        EmbedAuthor,
+        SlashContext,
+        Embed,
+        GuildText,
+        Member,
+        Attachment,
+        Role
+    )
 from lookups.colors import Color
 
 def get_slash_command(ctx: SlashContext):
-    command = "/" +ctx.__dict__['_command_name']
+    command = "/" + ctx._command_name
 
-    # TODO: Handle discord option types like channel, user, etc
-    # so that the command text displays them nicely
+    for arg in ctx.kwargs:
+        option = ctx.kwargs[arg]
 
-    for arg in ctx.__dict__['kwargs']:
-        command += f" {arg}:{ctx.__dict__['kwargs'][arg]}"
+        # Option is channel
+        if isinstance(option, GuildText):
+            option = option.name
+
+        # Option is member
+        if isinstance(option, Member):
+            option = option.display_name
+
+        # Option is role
+        if isinstance(option, Role):
+            option = f"@{option.name}"
+
+        # Option is attachment
+        if isinstance(option, Attachment):
+            option = f"[{option.filename}]({option.url})"
+
+        command += f" {arg}:{option}"
 
     return command
 
-# TODO: Add class for discord logging
 class DiscordLogger:
-
     @classmethod
     async def log(self, bot: Client, ctx: SlashContext, description: str = ""):
         logging_channel_id = Config.get_config_parameter(name="logging", key="channel_id")
@@ -53,7 +75,7 @@ class DiscordLogger:
 
         await logging_channel.send(embed=embed)
 
-### Most of the stuff below is based on 'logutil' from the old interactions boilerplate ###
+### Most of the stuff below is based on 'logutil' from the old interactions.py boilerplate ###
 
 def get_logger(name):
     '''Gets a logger'''
