@@ -97,20 +97,7 @@ class Manager(Extension):
             self.logger.warning("Failed to pull repository")
             await self.discord_logger.log_command(ctx, f"Failed to pull repository")
 
-    @bot.subcommand(
-        sub_cmd_name="get-logs",
-        sub_cmd_description="Get logs from a specific date"
-    )
-    @slash_option(
-        name="date",
-        description="The date you want logs for",
-        opt_type=OptionType.STRING,
-        autocomplete=True,
-        required=True
-    )
-    async def bot_get_logs(self, ctx: SlashContext, date: str):
-        pass
-
+    ### /BOT RESTART ###
     async def restart(self, ctx: SlashContext):
         # Set channel where message should be sent on startup
         Data.set_data_item("restart_channel", str(ctx.channel.id))
@@ -123,6 +110,43 @@ class Manager(Extension):
 
         # Restarts bot
         execl(executable, *([executable]+argv))
+
+    ### /BOT GET-LOGS ###
+    @bot.subcommand(
+        sub_cmd_name="get-logs",
+        sub_cmd_description="Get logs from a specific date"
+    )
+    @slash_option(
+        name="date",
+        description="The date you want logs for",
+        opt_type=OptionType.STRING,
+        autocomplete=True,
+        required=True
+    )
+    async def bot_get_logs(self, ctx: SlashContext, date: str):
+        if date == "Latest":
+            # Get latest filepath
+            path = "./logs"
+            files = os.listdir(path)
+            paths = [os.path.join(path, basename) for basename in files]
+            date = max(paths, key=os.path.getctime)
+    
+        # Send file if it exists
+        log_file = File(date)
+        if log_file.exists():
+            await ctx.send(file = InteractionsFile(date), ephemeral = True)
+            # await self.discord_logger.log_command(ctx, f"Sent log file: {log_file_name}")
+            self.logger.info(f"Sent log file: {date}")
+            return
+
+        # If filepath invalid
+        await ctx.send(
+            embeds=Embed
+            (
+                description="That date is invalid! Please select a date from the provided list in the command", color=Color.RED),
+                ephemeral=True
+            )                    
+        self.logger.info("Invalid Date")
 
     ### Log files autocomplete ###
     @bot_get_logs.autocomplete("date")
