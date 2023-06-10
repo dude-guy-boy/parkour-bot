@@ -5,7 +5,6 @@ from interactions import (
     Extension,
     Member,
     SlashCommand,
-    slash_command,
     slash_option,
     SlashContext,
     OptionType,

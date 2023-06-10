@@ -8,7 +8,6 @@ from src.database import Config
 from os import path
 from interactions import (
         EMBED_MAX_DESC_LENGTH,
-        BaseContext,
         Client,
         EmbedAuthor,
         SlashContext,

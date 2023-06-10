@@ -8,12 +8,10 @@ from interactions import (
     SlashContext,
     OptionType,
     Embed,
-    ButtonStyle,
     AutocompleteContext
     )
 import src.logs as logs
 from lookups.colors import Color
-import os.path as path
 from src.database import Data
 
 class FAQ(Extension):

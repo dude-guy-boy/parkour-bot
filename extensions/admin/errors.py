@@ -1,7 +1,7 @@
 # errors.py
 
 import traceback
-from interactions import EMBED_MAX_DESC_LENGTH, Client, Extension, listen, Embed, CooldownSystem
+from interactions import Client, Extension, listen, Embed, CooldownSystem
 from interactions.api.events.internal import CommandError
 import src.logs as logs
 from datetime import timedelta

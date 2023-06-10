@@ -10,7 +10,6 @@ from interactions import (
     SlashContext,
     OptionType,
     Embed,
-    ButtonStyle,
     AutocompleteContext
     )
 import src.logs as logs
