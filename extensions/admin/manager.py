@@ -86,8 +86,8 @@ class Manager(Extension):
             await ctx.send(embeds=Embed(description=f"**Pulling Repository:**{formatted_string}", color=Color.GREEN))
 
             # Log the update
-            # TODO: discord logger
-            # await self.discord_logger.log_command(ctx, f"Pulled repository.{formatted_string}")
+            await logs.DiscordLogger.log_raw(self.bot, description=f"Updated Bot.{formatted_string}")
+
             reformatted = formatted_string.replace('\n', ':')
             self.logger.info(f"Pulled repository. {reformatted}")
             await self.restart(ctx)
