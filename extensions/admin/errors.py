@@ -20,26 +20,37 @@ class Errors(Extension):
     #     # TODO: Make this configurable
     #     pass
 
-    # @listen("on_command_error", disable_default_listeners=True)
-    # async def on_cooldown_error(self, error: CommandError):
-    #     # if isinstance(error, CommandOnCooldown):
-    #     if hasattr(error, "cooldown"):
-    #         cooldown: CooldownSystem = error.error.cooldown
-    #         time = str(timedelta(seconds = round(cooldown.get_cooldown_time()))).split(":")
-    #         hours = int(time[0])
-    #         minutes = int(time[1])
-    #         seconds = int(time[2])
-
-    #         await error.ctx.send(embeds = Embed(description=f"You're on cooldown! Please wait `{str(hours) + ' hours' if hours > 0 else ''}{str(minutes) + ' minutes' if minutes > 0 else ''}{str(seconds) + ' seconds' if seconds > 0 else ''}`.", color=Color.RED))
-
     @listen("on_command_error", disable_default_listeners=True)
     async def on_cooldown_error(self, error: CommandError):
         try:
             cooldown: CooldownSystem = error.error.cooldown
+            time = str(timedelta(seconds = round(cooldown.get_cooldown_time()))).split(":")
+            hours = int(time[0])
+            minutes = int(time[1])
+            seconds = int(time[2])
 
-            await error.ctx.send(embeds = Embed(description=f"You're on cooldown! Please wait `{round(cooldown.get_cooldown_time())}` seconds.", color=Color.RED))
+            await error.ctx.send(embeds = Embed(description=f"You're on cooldown! Please wait `{self.format_cooldown(hours, minutes, seconds)}`.", color=Color.RED))
         except:
             pass
+
+    def format_cooldown(self, hours, minutes, seconds):
+        time_units = []
+        if hours > 0:
+            time_units.append(f"{hours} hour{'s' if hours > 1 else ''}")
+
+        if minutes > 0:
+            time_units.append(f"{minutes} minute{'s' if minutes > 1 else ''}")
+
+        if seconds > 0:
+            time_units.append(f"{seconds} second{'s' if seconds > 1 else ''}")
+
+        if len(time_units) == 1:
+            return time_units[0]
+
+        if len(time_units) == 2:
+            return f"{time_units[0]} and {time_units[1]}"
+
+        return ', '.join(time_units[:-1]) + f" and {time_units[-1]}"
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
