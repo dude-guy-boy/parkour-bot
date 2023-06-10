@@ -39,9 +39,6 @@ class Manager(Extension):
         self.hourly_backups.start()
         self.daily_backup_cleanup.start()
 
-    # TODO: Add management commands
-    # Get backup
-
     # Base bot command
     bot = SlashCommand(name="bot", description="base bot command")
 
