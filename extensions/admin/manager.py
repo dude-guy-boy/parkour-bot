@@ -3,14 +3,15 @@
 from interactions import (
     Client,
     Extension,
-    slash_command,
     slash_option,
     SlashContext,
     OptionType,
     Embed,
-    ButtonStyle,
     AutocompleteContext,
-    File as InteractionsFile
+    File as InteractionsFile,
+    Task,
+    IntervalTrigger,
+    SlashCommand
     )
 import src.logs as logs
 from lookups.colors import Color
@@ -22,23 +23,28 @@ from sys import executable, argv
 from signal import SIGKILL
 from git import Repo
 import shutil
+import os
 
 class Manager(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
+
+        # Create the repo object
         self.repo = Repo('.')
         assert not self.repo.bare
 
+        self.hourly_backups.start()
+
     # TODO: Add management commands
-    # Force backup
     # Get backup
     # Get logs
 
-    ### /BACKUP-NOW ###
-    @slash_command(
-        name="bot",
-        description="base bot command",
+    # Base bot command
+    bot = SlashCommand(name="bot", description="base bot command")
+
+    ### /BOT BACKUP ###
+    @bot.subcommand(
         sub_cmd_name="backup",
         sub_cmd_description="Saves a new backup of the bot"
     )
@@ -47,12 +53,10 @@ class Manager(Extension):
         backup = self.do_backup()
 
         # Send backup
-        await ctx.send(file=InteractionsFile(backup))
+        await ctx.send(embed=Embed(description="Here's your backup!", color=Color.GREEN), file=InteractionsFile(backup), ephemeral=True)
 
     ### /BOT RESTART ###
-    @slash_command(
-        name="bot",
-        description="base bot command",
+    @bot.subcommand(
         sub_cmd_name="restart",
         sub_cmd_description="Restarts the bot"
     )
@@ -60,9 +64,7 @@ class Manager(Extension):
         await self.restart(ctx)
 
     ### /BOT UPDATE ###
-    @slash_command(
-        name="bot",
-        description="base bot command",
+    @bot.subcommand(
         sub_cmd_name="update",
         sub_cmd_description="Updates the bot"
     )
@@ -95,6 +97,20 @@ class Manager(Extension):
             self.logger.warning("Failed to pull repository")
             await self.discord_logger.log_command(ctx, f"Failed to pull repository")
 
+    @bot.subcommand(
+        sub_cmd_name="get-logs",
+        sub_cmd_description="Get logs from a specific date"
+    )
+    @slash_option(
+        name="date",
+        description="The date you want logs for",
+        opt_type=OptionType.STRING,
+        autocomplete=True,
+        required=True
+    )
+    async def bot_get_logs(self, ctx: SlashContext, date: str):
+        pass
+
     async def restart(self, ctx: SlashContext):
         # Set channel where message should be sent on startup
         Data.set_data_item("restart_channel", str(ctx.channel.id))
@@ -108,15 +124,43 @@ class Manager(Extension):
         # Restarts bot
         execl(executable, *([executable]+argv))
 
+    ### Log files autocomplete ###
+    @bot_get_logs.autocomplete("date")
+    async def log_files_autocomplete(self, ctx: AutocompleteContext):
+        choices = []
+
+        try:
+            file_names = os.listdir(
+                f"./logs/")
+        except:
+            file_names = ["No Files Found"]
+
+        for idx, filename in enumerate(file_names):
+            file_names[idx] = "./logs/" + filename
+
+        sorted_file_list = sorted(file_names, key=os.path.getctime, reverse=True)
+
+        sorted_file_list.insert(0, "Latest")
+
+        for filename in sorted_file_list:
+            choices.append(
+                {
+                    "name": filename.replace("./logs/", "").replace(".log", ""),
+                    "value": filename
+                }
+            )
+
+        await ctx.send(choices=choices[:25])
+
     def do_backup(self):
         time = datetime.utcnow()
         backup_filepath = f'./backups/today/{time.strftime("%d-%m-%Y_%H-%M")}'
 
         # Create backup directories if they don't exist
-        backups = Directory("./backups").create()
-        today = Directory("./backups/today").create()
-        this_week = Directory("./backups/this_week").create()
-        older = Directory("./backups/older").create()
+        Directory("./backups").create()
+        Directory("./backups/today").create()
+        Directory("./backups/this_week").create()
+        Directory("./backups/older").create()
 
         # Make folder in backups directory for new backup
         temp_dir = Directory(backup_filepath)
@@ -135,6 +179,22 @@ class Manager(Extension):
         
         # Return the backup
         return backup_filepath + ".zip"
+
+    def move_backups(self):
+        # Moves backups to their correct folders based on the date in the filename
+        # TODO add this
+        pass
+
+    ### Hourly Backups Task ###
+    @Task.create(IntervalTrigger(hours=1))
+    async def hourly_backups(self):
+        self.logger.info("Backing-up...")
+
+        self.do_backup()
+
+        self.move_backups()
+
+        self.logger.info("Backup created")
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
