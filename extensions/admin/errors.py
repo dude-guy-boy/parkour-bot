@@ -1,9 +1,8 @@
 # errors.py
 
 import traceback
-from interactions import EMBED_MAX_DESC_LENGTH, Client, Extension, listen, Embed, events, CooldownSystem
-from interactions.client.errors import CommandOnCooldown
-from interactions.api.events.internal import CommandError, Error
+from interactions import EMBED_MAX_DESC_LENGTH, Client, Extension, listen, Embed, CooldownSystem
+from interactions.api.events.internal import CommandError
 import src.logs as logs
 from datetime import timedelta
 from lookups.colors import Color
@@ -19,16 +18,15 @@ class Errors(Extension):
         if await self.on_cooldown_error(error):
             return
         
-        # Send traceback
-        # TODO: In future make this send to the logging channel and normal logging also
+        # Send error message to user
+        await error.ctx.send(embed=Embed(description="An error occurred while trying to perform that command.", color=Color.RED), ephemeral=True)
+
+        # Get traceback
         out = "".join(traceback.format_exception(error.error))
-        await error.ctx.send(
-            embeds=Embed(
-                title=f"Error: {type(error.error).__name__}",
-                color=Color.RED,
-                description=f"```\n{out[:EMBED_MAX_DESC_LENGTH - 8]}```",
-            )
-        )
+
+        # Send to internal logs and discord logs
+        self.logger.error(out)
+        await logs.DiscordLogger.log_error(self.bot, error)
 
     async def on_cooldown_error(self, error: CommandError):
         try:

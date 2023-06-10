@@ -2,10 +2,13 @@
 
 import logging, inspect
 from datetime import datetime
+import traceback
 from src.files import Directory
 from src.database import Config
 from os import path
 from interactions import (
+        EMBED_MAX_DESC_LENGTH,
+        BaseContext,
         Client,
         EmbedAuthor,
         SlashContext,
@@ -15,8 +18,10 @@ from interactions import (
         Attachment,
         Role
     )
+from interactions.api.events.internal import CommandError
 from lookups.colors import Color
 
+# Takes slash command context and returns the command used formatted nicely
 def get_slash_command(ctx: SlashContext):
     command = "/" + ctx._command_name
 
@@ -72,6 +77,24 @@ class DiscordLogger:
             description=description,
             color=Color.WHITE
         )
+
+        await logging_channel.send(embed=embed)
+
+    @classmethod
+    async def log_error(self, bot: Client, error: CommandError):
+        logging_channel_id = Config.get_config_parameter(name="logging", key="channel_id")
+        logging_channel = await bot.fetch_channel(logging_channel_id)
+
+        out = "".join(traceback.format_exception(error.error))
+
+        embed = Embed(
+            title=f"Error: {type(error.error).__name__}",
+            author=EmbedAuthor(name=bot.user.display_name, icon_url=bot.user.avatar.url),
+            description=f"```\n{out[:EMBED_MAX_DESC_LENGTH - 8]}```",
+            color=Color.RED
+        )
+
+        embed.add_field(name="Details", value=f"Error occurred in slash command: ```{get_slash_command(error.ctx)}```")
 
         await logging_channel.send(embed=embed)
 
