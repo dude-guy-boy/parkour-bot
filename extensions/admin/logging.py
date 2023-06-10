@@ -45,7 +45,7 @@ class Logging(Extension):
         if "command" in ctx.__dict__:
             if type(ctx.__dict__["command"]) == PrefixedCommand or _HybridToPrefixedCommand:
                 command = ctx.message.content
-                self.chat_logger.info(f"{ctx.user.username}#{ctx.user.discriminator} performed the prefixed command '{command}' in #{ctx.channel.name}")
+                self.chat_logger.info(f"{ctx.user.username} performed the prefixed command '{command}' in #{ctx.channel.name}")
                 return True
         return False
 
