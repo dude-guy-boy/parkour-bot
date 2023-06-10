@@ -8,7 +8,7 @@ from src.database import Data
 from interactions import Client, Intents
 from interactions.ext import prefixed_commands, hybrid_commands
 
-# TODO: in-discord logging, universal interaction logging, Backups, Bot restart / reload, git sync
+# TODO: in-discord logging, universal interaction logging
 
 async def main():
     load_dotenv()

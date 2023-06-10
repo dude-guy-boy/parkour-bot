@@ -3,12 +3,55 @@
 import logging, inspect
 from datetime import datetime
 from src.files import Directory
+from src.database import Config
 from os import path
+from interactions import Client, EmbedAuthor, SlashContext, Embed
+from lookups.colors import Color
+
+def get_slash_command(ctx: SlashContext):
+    command = "/" +ctx.__dict__['_command_name']
+
+    # TODO: Handle discord option types like channel, user, etc
+    # so that the command text displays them nicely
+
+    for arg in ctx.__dict__['kwargs']:
+        command += f" {arg}:{ctx.__dict__['kwargs'][arg]}"
+
+    return command
 
 # TODO: Add class for discord logging
 class DiscordLogger:
-    async def log(self):
-        print("Hi")
+
+    @classmethod
+    async def log(self, bot: Client, ctx: SlashContext, description: str = ""):
+        logging_channel_id = Config.get_config_parameter(name="logging", key="channel_id")
+        logging_channel = await bot.fetch_channel(logging_channel_id)
+
+        embed = Embed(
+            author=EmbedAuthor(name=ctx.author.display_name, icon_url=ctx.author.avatar.url),
+            description=f"User {ctx.author.mention} used a slash command in {ctx.channel.mention}.",
+            color=Color.WHITE
+        )
+
+        embed.add_field(name="Command", value=f"`{get_slash_command(ctx)}`")
+
+        if(description):
+            embed.add_field(name="Description", value=description)
+
+        await logging_channel.send(embed=embed)
+
+    @classmethod
+    async def log_raw(self, bot: Client, description: str = ""):
+        logging_channel_id = Config.get_config_parameter(name="logging", key="channel_id")
+        logging_channel = await bot.fetch_channel(logging_channel_id)
+
+        embed = Embed(
+            author=EmbedAuthor(name=bot.user.display_name, icon_url=bot.user.avatar.url),
+            description=description,
+            color=Color.WHITE
+        )
+
+        await logging_channel.send(embed=embed)
 
 ### Most of the stuff below is based on 'logutil' from the old interactions boilerplate ###
 

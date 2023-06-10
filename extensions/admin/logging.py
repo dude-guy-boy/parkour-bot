@@ -39,15 +39,7 @@ class Logging(Extension):
             self.process_prefixed_command(ctx)
             return
 
-        command = "/" +ctx.__dict__['_command_name']
-
-        # TODO: Handle discord option types like channel, user, etc
-        # so that the command text displays them nicely
-
-        for arg in ctx.__dict__['kwargs']:
-            command += f" {arg}:{ctx.__dict__['kwargs'][arg]}"
-
-        return command
+        return logs.get_slash_command(ctx)
 
     def process_prefixed_command(self, ctx: BaseContext):
         if "command" in ctx.__dict__:
