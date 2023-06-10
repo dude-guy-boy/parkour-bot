@@ -137,7 +137,7 @@ class Manager(Extension):
             await ctx.send(embed=Embed(description="That's not a backup!", color=Color.RED), ephemeral=True)
             return
         
-        await ctx.send(embed=Embed(description="Here's your backup!", color=Color.GREEN), file=InteractionsFile(backup), ephemeral=True)
+        await ctx.send(file=InteractionsFile(backup), ephemeral=True)
 
     ### Backup file autocomplete ###
     @bot_get_backup.autocomplete("backup")
@@ -158,7 +158,7 @@ class Manager(Extension):
 
         filtered_choices = []
         for choice in choices:
-            if ctx.input_text in choice['name']:
+            if ctx.input_text.lower() in choice['name'].lower():
                 filtered_choices.append(choice)
 
         await ctx.send(filtered_choices[:25])
@@ -228,7 +228,7 @@ class Manager(Extension):
 
         filtered_choices = []
         for choice in choices:
-            if ctx.input_text in choice['name']:
+            if ctx.input_text.lower() in choice['name'].lower():
                 filtered_choices.append(choice)
 
         await ctx.send(filtered_choices[:25])
