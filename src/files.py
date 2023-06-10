@@ -59,6 +59,14 @@ class Directory:
             shutil.rmtree(self.path)
 
         return not self.exists()
+    
+    def contents(self):
+        if self.exists():
+            return os.listdir(self.path)
+        
+    def contents_long(self):
+        if self.exists():
+            return [self.path + ('/' if not self.path.endswith('/') else '') + file for file in self.contents()]
 
 if __name__ == "__main__":
     directory = Directory("./testdir/")
