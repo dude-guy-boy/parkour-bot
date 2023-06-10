@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from src.files import Directory
 from src.database import Data
 from interactions import Client, Intents
-from interactions.ext import prefixed_commands
+from interactions.ext import prefixed_commands, hybrid_commands
 
 # TODO: in-discord logging, universal interaction logging, Backups, Bot restart / reload, git sync
 
@@ -38,6 +38,7 @@ async def main():
         )
     
     prefixed_commands.setup(bot, default_prefix=['p!', 'P!'])
+    hybrid_commands.setup(bot)
 
     # Create base folders
     Directory("./data/").create()
