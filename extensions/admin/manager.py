@@ -10,6 +10,7 @@ from interactions import (
     AutocompleteContext,
     File as InteractionsFile,
     Task,
+    TimeTrigger,
     IntervalTrigger,
     SlashCommand
     )
@@ -35,10 +36,10 @@ class Manager(Extension):
         assert not self.repo.bare
 
         self.hourly_backups.start()
+        self.daily_backup_cleanup.start()
 
     # TODO: Add management commands
     # Get backup
-    # Get logs
 
     # Base bot command
     bot = SlashCommand(name="bot", description="base bot command")
@@ -204,10 +205,28 @@ class Manager(Extension):
         # Return the backup
         return backup_filepath + ".zip"
 
-    def move_backups(self):
-        # Moves backups to their correct folders based on the date in the filename
-        # TODO add this
-        pass
+    @Task.create(
+        TimeTrigger(
+            hour=0,
+            utc=True
+        )
+    )
+    def daily_backup_cleanup(self):
+        # Clean up daily backups
+        today = Directory("./backups/today")
+        today.create()
+
+        files = today.contents_long()
+        files = [file for file in files if file.endswith(".zip")]
+
+        latest_backup = max(files, key=os.path.getctime)
+
+        shutil.move(latest_backup, f"./backups/this_week/{latest_backup.split('/')[-1]}")
+        today.delete()
+
+        self.logger.info(f"Day finished, cleaned up daily backups")
+
+        # TODO: Add weekly cleanup
 
     ### Hourly Backups Task ###
     @Task.create(IntervalTrigger(hours=1))
@@ -215,8 +234,6 @@ class Manager(Extension):
         self.logger.info("Backing-up...")
 
         self.do_backup()
-
-        self.move_backups()
 
         self.logger.info("Backup created")
 
