@@ -1,6 +1,7 @@
 # errors.py
 
-from interactions import Client, Extension, listen, Embed, events, CooldownSystem
+import traceback
+from interactions import EMBED_MAX_DESC_LENGTH, Client, Extension, listen, Embed, events, CooldownSystem
 from interactions.client.errors import CommandOnCooldown
 from interactions.api.events.internal import CommandError, Error
 import src.logs as logs
@@ -14,13 +15,23 @@ class Errors(Extension):
 
     # TODO: Make this log traceback
 
-    # @listen(disable_default_listeners=True)
-    # async def on_command_error(self, error: CommandError):
-    #     # cancel default interactions error msg
-    #     # TODO: Make this configurable
-    #     pass
+    @listen(disable_default_listeners=True)
+    async def on_command_error(self, error: CommandError):
+        # Handle cooldown error
+        if await self.on_cooldown_error(error):
+            return
+        
+        # Send traceback
+        # TODO: In future make this send to the logging channel
+        out = "".join(traceback.format_exception(error.error))
+        await error.ctx.send(
+            embeds=Embed(
+                title=f"Error: {type(error.error).__name__}",
+                color=Color.RED,
+                description=f"```\n{out[:EMBED_MAX_DESC_LENGTH - 8]}```",
+            )
+        )
 
-    @listen("on_command_error", disable_default_listeners=True)
     async def on_cooldown_error(self, error: CommandError):
         try:
             cooldown: CooldownSystem = error.error.cooldown
@@ -30,8 +41,9 @@ class Errors(Extension):
             seconds = int(time[2])
 
             await error.ctx.send(embeds = Embed(description=f"You're on cooldown! Please wait `{self.format_cooldown(hours, minutes, seconds)}`.", color=Color.RED))
+            return True
         except:
-            pass
+            return False
 
     def format_cooldown(self, hours, minutes, seconds):
         time_units = []
