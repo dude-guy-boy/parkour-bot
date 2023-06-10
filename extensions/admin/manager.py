@@ -12,7 +12,8 @@ from interactions import (
     Task,
     TimeTrigger,
     IntervalTrigger,
-    SlashCommand
+    SlashCommand,
+    SlashCommandChoice
     )
 import src.logs as logs
 from lookups.colors import Color
@@ -112,6 +113,59 @@ class Manager(Extension):
         # Restarts bot
         execl(executable, *([executable]+argv))
 
+    @bot.subcommand(
+        sub_cmd_name="get-backup",
+        sub_cmd_description="Get an old backup"
+    )
+    @slash_option(
+        name="folder",
+        description="The time period the backup you want is from",
+        opt_type=OptionType.STRING,
+        required=True,
+        choices=[
+            SlashCommandChoice(name="Today", value="./backups/today"),
+            SlashCommandChoice(name="This Week", value="./backups/this_week"),
+            SlashCommandChoice(name="Older", value="./backups/older")
+        ]
+    )
+    @slash_option(
+        name="backup",
+        description="The backup you want to get",
+        opt_type=OptionType.STRING,
+        required=True,
+        autocomplete=True
+    )
+    async def bot_get_backup(self, ctx: SlashContext, folder: str, backup: str):
+        if not backup:
+            await ctx.send(embed=Embed(description="That's not a backup!", color=Color.RED), ephemeral=True)
+            return
+        
+        await ctx.send(embed=Embed(description="Here's your backup!", color=Color.GREEN), file=InteractionsFile(backup), ephemeral=True)
+
+    ### Backup file autocomplete ###
+    @bot_get_backup.autocomplete("backup")
+    async def backup_files_autocomplete(self, ctx: AutocompleteContext):
+        choices = []
+
+        try:
+            backup_dir = Directory(ctx.kwargs['folder'])
+            contents = backup_dir.contents_long()
+
+            if not contents:
+                choices.append({"name": "This folder has no backups.", "value": ""})
+
+            for file in contents:
+                choices.append({"name": file.split("/")[-1][:-4], "value": file})
+        except:
+            choices.append({"name": "Please choose a folder first!", "value": ""})
+
+        filtered_choices = []
+        for choice in choices:
+            if ctx.input_text in choice['name']:
+                filtered_choices.append(choice)
+
+        await ctx.send(filtered_choices[:25])
+
     ### /BOT GET-LOGS ###
     @bot.subcommand(
         sub_cmd_name="get-logs",
@@ -175,7 +229,12 @@ class Manager(Extension):
                 }
             )
 
-        await ctx.send(choices=choices[:25])
+        filtered_choices = []
+        for choice in choices:
+            if ctx.input_text in choice['name']:
+                filtered_choices.append(choice)
+
+        await ctx.send(filtered_choices[:25])
 
     def do_backup(self):
         time = datetime.utcnow()
@@ -205,6 +264,7 @@ class Manager(Extension):
         # Return the backup
         return backup_filepath + ".zip"
 
+    ### Daily Backup Cleanup ###
     @Task.create(
         TimeTrigger(
             hour=0,
