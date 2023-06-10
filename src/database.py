@@ -54,10 +54,10 @@ class BaseDataBase:
 
 class Config(BaseDataBase):
     @classmethod
-    def get_config_parameter(cls, key: str) -> list:
+    def get_config_parameter(cls, key: str, name: str = None) -> list:
         '''Gets a config parameter'''
 
-        return cls._get_item(cls, key=key, directory="config")[0]['value']
+        return cls._get_item(cls, key=key, directory="config", name=name)[0]['value']
 
     @classmethod
     def set_config_parameter(cls, key: str, value):
