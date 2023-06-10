@@ -13,8 +13,6 @@ class Errors(Extension):
         self.client = client
         self.logger = logs.init_logger()
 
-    # TODO: Make this log traceback
-
     @listen(disable_default_listeners=True)
     async def on_command_error(self, error: CommandError):
         # Handle cooldown error
@@ -22,7 +20,7 @@ class Errors(Extension):
             return
         
         # Send traceback
-        # TODO: In future make this send to the logging channel
+        # TODO: In future make this send to the logging channel and normal logging also
         out = "".join(traceback.format_exception(error.error))
         await error.ctx.send(
             embeds=Embed(

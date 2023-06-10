@@ -45,10 +45,9 @@ class FourtyFive(Extension):
 
         await ctx.send(embeds=Embed(description=f"{ctx.author.mention} Not a perfect 45 noob, {random_number}", color=Color.YORANGE))
         UserData.set_user(str(ctx.author.id), {"wins": user['wins'], "attempts": user['attempts']+1})
-        
 
     # TODO: Add leaderboard
-    
+
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
     FourtyFive(bot)
