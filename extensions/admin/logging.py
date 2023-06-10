@@ -14,6 +14,7 @@ from interactions import (
     )
 from interactions.api.events.internal import CommandCompletion
 from interactions.ext.prefixed_commands import PrefixedCommand
+from interactions.ext.hybrid_commands.hybrid_slash import _HybridToPrefixedCommand
 import src.logs as logs
 from src.database import Config
 from lookups.colors import Color
@@ -33,6 +34,11 @@ class Logging(Extension):
         self.unknown_logger = logs.init_logger("UNKNOWN")
 
     def get_slash_command(self, ctx: BaseContext):
+        # Handle if hybrid command
+        if hasattr(ctx, "prefix"):
+            self.process_prefixed_command(ctx)
+            return
+
         command = "/" +ctx.__dict__['_command_name']
 
         # TODO: Handle discord option types like channel, user, etc
@@ -43,11 +49,11 @@ class Logging(Extension):
 
         return command
 
-    def process_prefixed_command(self, event: CommandCompletion):
-        if "command" in event.ctx.__dict__:
-            if type(event.ctx.__dict__["command"]) == PrefixedCommand:
-                command = event.ctx.message.content
-                self.chat_logger.info(f"{event.ctx.user.username}#{event.ctx.user.discriminator} performed the prefixed command '{command}' in #{event.ctx.channel.name}")
+    def process_prefixed_command(self, ctx: BaseContext):
+        if "command" in ctx.__dict__:
+            if type(ctx.__dict__["command"]) == PrefixedCommand or _HybridToPrefixedCommand:
+                command = ctx.message.content
+                self.chat_logger.info(f"{ctx.user.username}#{ctx.user.discriminator} performed the prefixed command '{command}' in #{ctx.channel.name}")
                 return True
         return False
 
@@ -55,7 +61,7 @@ class Logging(Extension):
     async def on_command_completion(self, event: CommandCompletion):
 
         # Process if prefixed command
-        if self.process_prefixed_command(event):
+        if self.process_prefixed_command(event.ctx):
             return
 
         # TODO: Add funcs to process other command types
