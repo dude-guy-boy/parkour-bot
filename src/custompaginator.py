@@ -1,11 +1,8 @@
 from interactions.ext import paginators as standard_paginator
-from interactions.ext.paginators import Page
-from interactions.ext.paginators import Timeout
-from interactions.client.utils.serializer import export_converter
+from interactions.ext.paginators import Timeout, Page
 from interactions import (
     ActionRow,
     Button,
-    ButtonStyle,
     Client,
     MISSING,
     BaseContext,
