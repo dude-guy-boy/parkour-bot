@@ -116,6 +116,9 @@ class Presence(Extension):
         await self.bot.change_presence(activity=None)
         await ctx.send(embed=Embed(description=f"Cleared the bot presence/activity", color=Color.GREEN), ephemeral=True)
 
+    # TODO: Add playing random map as a presence option
+    # TODO: Add task that changes random map every hour
+
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
     Presence(bot)
