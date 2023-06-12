@@ -96,17 +96,18 @@ class Twenty48(Extension):
         if not component.ctx.custom_id.startswith("2048"):
             return
         
-        # Get 2048 user
-        user = UserData.get_user(component.ctx.author.id)
+        ctx = component.ctx
+        custom_id = ctx.custom_id
 
-        custom_id = component.ctx.custom_id
+        # Get 2048 user
+        user = UserData.get_user(ctx.author.id)
 
         # Check if button presser is the game owner
-        if not user or user["message"]["message_id"] != int(component.ctx.message.id):
-            await component.ctx.send(embeds=Embed(description="That isn't your 2048 game!", color=Color.RED), ephemeral=True)
+        if not user or user["message"]["message_id"] != int(ctx.message.id):
+            await ctx.send(embeds=Embed(description="That isn't your 2048 game!", color=Color.RED), ephemeral=True)
             
             if not user:
-                UserData.delete_user(component.ctx.author.id)
+                UserData.delete_user(ctx.author.id)
             return
 
         # End button pressed, send confirmation modal
@@ -117,7 +118,7 @@ class Twenty48(Extension):
                 custom_id="end_game_modal"
             )
 
-            await component.ctx.send_modal(end_game_modal)
+            await ctx.send_modal(end_game_modal)
             return
 
         board = user["board"]
@@ -162,14 +163,14 @@ class Twenty48(Extension):
 
         # If no possible moves remain, end the game
         if not self.any_possible_move(board):
-            await self.end_game(component.ctx, board, user, new_tile_coordinate)
+            await self.end_game(ctx, board, user, new_tile_coordinate)
             return
 
         embed = Embed(
-            description=f"{component.ctx.author.mention} here's your game of 2048!\nHigh Score: `{user['high_score']}`\nCurrent Score: `{user['score']}`", color=Color.GREEN)
+            description=f"{ctx.author.mention} here's your game of 2048!\nHigh Score: `{user['high_score']}`\nCurrent Score: `{user['score']}`", color=Color.GREEN)
 
-        await component.ctx.edit_origin(embed=embed, components=self.generate_buttons(board, new_tile=new_tile_coordinate))
-        UserData.set_user(component.ctx.author.id, user)
+        await ctx.edit_origin(embed=embed, components=self.generate_buttons(board, new_tile=new_tile_coordinate))
+        UserData.set_user(ctx.author.id, user)
 
     ### End Game Modal Callback ###
     @modal_callback("end_game_modal")
@@ -184,6 +185,7 @@ class Twenty48(Extension):
         else:
             await ctx.send(embeds = Embed(description="You didn't end the game.", color=Color.RED), ephemeral = True)
 
+    ### /LEADERBOARD GAME 2048 ###
     @slash_command(
         name="leaderboard",
         description="base leaderboard command",
