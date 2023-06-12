@@ -124,6 +124,10 @@ class Dictionary(Extension):
             aliases = ', '.join(aliases)
 
         await ctx.send(embed=Embed(description=f"Added `{entry}` {('('+aliases+')') if aliases else ''} to the dictionary with definition `{definition}`.", color=Color.GREEN))
+        
+        # Log
+        self.logger.info(f"Added definition '{entry} {('('+aliases+')') if aliases else ''}: {definition}'")
+        await logs.DiscordLogger.log(bot=self.bot, ctx=ctx, description=f"Added definition `{entry} {('('+aliases+')') if aliases else ''}: {definition}`")
 
     @slash_command(
         name="definition-remove",
@@ -145,6 +149,10 @@ class Dictionary(Extension):
         
         Data.delete_item(table="dictionary", item={'key': entry, 'value': definition})
         await ctx.send(embed=Embed(description=f"Removed definition for `{entry}` from the dictionary", color=Color.GREEN))
+
+        # Log
+        self.logger.info(f"Removed definition '{entry}: {definition}'")
+        await logs.DiscordLogger.log(bot=self.bot, ctx=ctx, description=f"Removed definition `{entry} {('('+definition['aliases']+')') if definition['aliases'] else ''}: {definition['definition']}`")
 
     ### Dictionary entry autocomplete ###
     @define_command.autocomplete("entry")

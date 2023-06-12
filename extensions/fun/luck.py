@@ -12,7 +12,6 @@ from interactions import (
 import src.logs as logs
 from random import choice
 from random import randint
-from lookups.colors import Color
 from src.database import UserData
 from lookups.luckreference import powers
 from lookups.aipersonalities import personalities
@@ -105,6 +104,7 @@ class Luck(Extension):
             {"odds": reference['text'], "message_id": int(message.id), "channel_id": int(message.channel.id), "content": str(message.content)})
         
         self.logger.info(f"{message.author.username} just got one in {reference['text']} luck")
+        await logs.DiscordLogger.log_raw(bot=self.bot, description=f"{message.author.username} just got [one in {reference['text']}]({message.jump_url}) luck")
 
         return luck_profile
 

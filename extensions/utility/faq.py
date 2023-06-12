@@ -61,6 +61,10 @@ class FAQ(Extension):
         Data.set_data_item(table="faq", key=question, value=answer)
         await ctx.send(embed=Embed(description=f"Added FAQ `{question}` with answer `{answer}`.", color=Color.GREEN))
 
+        # Log
+        self.logger.info(f"Added FAQ '{question}' with answer '{answer}'")
+        await logs.DiscordLogger.log(bot=self.bot, ctx=ctx, description=f"Added FAQ `{question}` with answer `{answer}`")
+
     ### /FAQ-REMOVE ###
     @slash_command(
         name="faq-remove",
@@ -82,6 +86,10 @@ class FAQ(Extension):
         
         Data.delete_item(table="faq", item={'key': key, 'value': value})
         await ctx.send(embed=Embed(description=f"Removed FAQ Q:`{key}` A:`{value}`", color=Color.GREEN))
+
+        # Log
+        self.logger.info(f"Removed FAQ '{key}: {value}'")
+        await logs.DiscordLogger.log(bot=self.bot, ctx=ctx, description=f"Removed FAQ `{key}: {value}`")
 
     ### FAQ question autocomplete ###
     @faq_command.autocomplete("question")

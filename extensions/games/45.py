@@ -43,8 +43,11 @@ class FourtyFive(Extension):
         random_number = randint(0, 900) / 10
 
         if(random_number == 45):
-            await ctx.send(embed=Embed(description=f"{ctx.author.mention} 🔥🔥🔥🔥🔥🔥 PERFECT 45 💯💯💯💯💯💯 YOUR 45 WAS 45.0! 🤑🤑🤑🤑🤑🤑", color=Color.GREEN))
+            message = await ctx.send(embed=Embed(description=f"{ctx.author.mention} 🔥🔥🔥🔥🔥🔥 PERFECT 45 💯💯💯💯💯💯 YOUR 45 WAS 45.0! 🤑🤑🤑🤑🤑🤑", color=Color.GREEN))
             UserData.set_user(str(ctx.author.id), {"wins": user['wins']+1, "attempts": user['attempts']+1})
+
+            self.logger.info(f"{ctx.author.username} just did a perfect 45")
+            await logs.DiscordLogger.log(bot=self.bot, description=f"{ctx.author.username} [just did a perfect 45]({message.jump_url})")
             return
 
         await ctx.send(embeds=Embed(description=f"{ctx.author.mention} Not a perfect 45 noob, {random_number}", color=Color.YORANGE))
