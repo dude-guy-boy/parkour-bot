@@ -1,7 +1,6 @@
 # 2048.py
 
 from interactions import (
-    MISSING,
     Client,
     ComponentContext,
     Extension,
@@ -10,8 +9,10 @@ from interactions import (
     Button,
     Modal,
     ShortText,
+    SlashContext,
     listen,
-    modal_callback
+    modal_callback,
+    slash_command
     )
 from interactions.ext.hybrid_commands import hybrid_slash_command, HybridContext
 from interactions.api.events.internal import Component
@@ -19,6 +20,7 @@ import src.logs as logs
 from lookups.colors import Color
 from src.database import UserData
 from random import randint, choices
+from src.leaderboard import Leaderboard
 
 class Twenty48(Extension):
     def __init__(self, client: Client):
@@ -102,6 +104,9 @@ class Twenty48(Extension):
         # Check if button presser is the game owner
         if not user or user["message"]["message_id"] != int(component.ctx.message.id):
             await component.ctx.send(embeds=Embed(description="That isn't your 2048 game!", color=Color.RED), ephemeral=True)
+            
+            if not user:
+                UserData.delete_user(component.ctx.author.id)
             return
 
         # End button pressed, send confirmation modal
@@ -178,6 +183,31 @@ class Twenty48(Extension):
             await self.end_game(ctx, user["board"], user, message=message)
         else:
             await ctx.send(embeds = Embed(description="You didn't end the game.", color=Color.RED), ephemeral = True)
+
+    @slash_command(
+        name="leaderboard",
+        description="base leaderboard command",
+        group_name="game",
+        group_description="game group command",
+        sub_cmd_name="2048",
+        sub_cmd_description="View the 2048 leaderboard!"
+    )
+    async def leaderboard(self, ctx: SlashContext):
+        data = UserData.get_all_items()
+        data = [{"user": f"<@{item['key']}>", "high_score": item['value']['high_score'], "largest_number": item['value']['largest_number'], "games_played": item['value']['games_played'], "cumulative_score": item['value']['cumulative_score']} for item in data]
+
+        # Create the leaderboard
+        lb = Leaderboard.create(
+            client=self.bot,
+            data=data,
+            field_map={"Leaderboard": "user", "High Score": "high_score", "Largest Number": "largest_number"},
+            sort_by="high_score",
+            secondary_sort_by="largest_number",
+            title="2048 Leaderboard",
+            text=f"There are `{len(data)}` users who've played a total of `{sum([user['games_played'] for user in data])}` games, earning an overall score of `{sum([user['cumulative_score'] for user in data])}`"
+        )
+
+        await lb.send(ctx)
 
     # Ends the game
     async def end_game(self, ctx, board, user, new_tile_coordinate = None, message = None):
