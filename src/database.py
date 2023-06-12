@@ -121,8 +121,8 @@ class UserData(Data):
         cls.set_data_item(key=str(id), value=data, table=table)
 
     @classmethod
-    def delete_user(cls, id, table):
+    def delete_user(cls, id, table: str = "default"):
         '''Deletes a user'''
         user = cls.get_user(id, table=table)
 
-        cls.delete_item(item=user, table=table)
+        cls.delete_item(item={"key": id, "value": user}, table=table)
