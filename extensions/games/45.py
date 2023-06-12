@@ -73,8 +73,6 @@ class FourtyFive(Extension):
             sort_by="wins",
             secondary_sort_by="attempts",
             secondary_descending=False,
-            use_medals=False,
-            page_len=2,
             title="45 Strafe Leaderboard",
             text=f"There are `{len(data)}` users who've cumulatively done `{sum([user['wins'] for user in data])}` perfect 45.0° strafes."
         )
