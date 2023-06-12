@@ -13,7 +13,7 @@ class File:
 
     def check_type(self, extension: str):
         '''Checks if the file is of a certain type'''
-        if(self.exists()):
+        if self.exists():
             return self.path.endswith(extension)
 
         return False
@@ -31,7 +31,7 @@ class File:
 
     def delete(self):
         '''Deletes the file'''
-        if(self.exists()):
+        if self.exists():
             os.remove(self.path)
 
         return not self.exists()
@@ -55,7 +55,7 @@ class Directory:
         return self.exists()
 
     def delete(self):
-        if(self.exists()):
+        if self.exists():
             shutil.rmtree(self.path)
 
         return not self.exists()

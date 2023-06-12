@@ -42,7 +42,7 @@ class FourtyFive(Extension):
 
         random_number = randint(0, 900) / 10
 
-        if(random_number == 45):
+        if random_number == 45:
             message = await ctx.send(embed=Embed(description=f"{ctx.author.mention} 🔥🔥🔥🔥🔥🔥 PERFECT 45 💯💯💯💯💯💯 YOUR 45 WAS 45.0! 🤑🤑🤑🤑🤑🤑", color=Color.GREEN))
             UserData.set_user(str(ctx.author.id), {"wins": user['wins']+1, "attempts": user['attempts']+1})
 

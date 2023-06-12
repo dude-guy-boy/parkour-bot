@@ -110,7 +110,7 @@ class Twenty48(Extension):
             return
 
         # End button pressed, send confirmation modal
-        if(custom_id.endswith("end")):
+        if custom_id.endswith("end"):
             end_game_modal = Modal(
                 ShortText(label="Enter 'end' to end the game:", custom_id="text_input_response"),
                 title="End 2048 Game?",
@@ -127,41 +127,41 @@ class Twenty48(Extension):
         new_tile_coordinate = []
 
         # Left
-        if(custom_id.endswith("left")):
+        if custom_id.endswith("left"):
             board, additional_score = self.left(board)
 
         # Right
-        if(custom_id.endswith("right")):
+        if custom_id.endswith("right"):
             board, additional_score = self.right(board)
 
         # Up
-        if(custom_id.endswith("up")):
+        if custom_id.endswith("up"):
             board, additional_score = self.up(board)
 
         # Down
-        if(custom_id.endswith("down")):
+        if custom_id.endswith("down"):
             board, additional_score = self.down(board)
 
         # Only add new tile if move was valid
-        if(board != old_board):
+        if board != old_board:
             board, new_tile_coordinate = self.add_new_tile(board)
         
         # Update board and score
         user["board"] = board
         user["score"] += additional_score
-        if(user["score"] > user["high_score"]):
+        if user["score"] > user["high_score"]:
             user["high_score"] = user["score"]
 
         largest_tile = 0
 
-        if(board):
+        if board:
             largest_tile = self.largest_tile_on_board(board)
 
-        if(largest_tile > user["largest_number"]):
+        if largest_tile > user["largest_number"]:
             user["largest_number"] = largest_tile
 
         # If no possible moves remain, end the game
-        if(not self.any_possible_move(board)):
+        if not self.any_possible_move(board):
             await self.end_game(component.ctx, board, user, new_tile_coordinate)
             return
 
@@ -174,7 +174,7 @@ class Twenty48(Extension):
     ### End Game Modal Callback ###
     @modal_callback("end_game_modal")
     async def end_game_modal_callback(self, ctx: ComponentContext, text_input_response: str):
-        if(text_input_response.lower() == "end"):
+        if text_input_response.lower() == "end":
             user = UserData.get_user(ctx.author.id)
 
             await ctx.send(embeds=Embed(description="Ended the game.", color=Color.GREEN), ephemeral=True)
@@ -222,7 +222,7 @@ class Twenty48(Extension):
 
         UserData.set_user(ctx.author.id, user)
 
-        if(message):
+        if message:
             ctx = message
 
         await ctx.edit(embeds=embed, components=self.generate_buttons(board, new_tile=new_tile_coordinate, game_over=True))
@@ -232,7 +232,7 @@ class Twenty48(Extension):
         largest_tile = 0
         for i in range(4):
             for j in range(4):
-                if(board[i][j] > largest_tile):
+                if board[i][j] > largest_tile:
                     largest_tile = board[i][j]
         return largest_tile
 
@@ -245,7 +245,7 @@ class Twenty48(Extension):
         board_3, _ = self.up(board)
         board_4, _ = self.down(board)
 
-        if(board_1 == old_board and board_2 == old_board and board_3 == old_board and board_4 == old_board):
+        if board_1 == old_board and board_2 == old_board and board_3 == old_board and board_4 == old_board:
             return False
         else:
             return True
@@ -291,7 +291,7 @@ class Twenty48(Extension):
         for i in range(4):
             fill_position = 0
             for j in range(4):
-                if(board[i][j] != 0):
+                if board[i][j] != 0:
                     new_matrix[i][fill_position] = board[i][j]
                     fill_position += 1
         
@@ -301,7 +301,7 @@ class Twenty48(Extension):
         score = 0
         for i in range(4):
             for j in range(3):
-                if(board[i][j] != 0 and board[i][j] == board[i][j+1]):
+                if board[i][j] != 0 and board[i][j] == board[i][j+1]:
                     board[i][j] *= 2
                     board[i][j+1] = 0
                     score += board[i][j]
@@ -339,7 +339,7 @@ class Twenty48(Extension):
             row = []
             for j in range(4):
                 # Tile is empty
-                if(board[i][j] == 0):
+                if board[i][j] == 0:
                     row.append(Button(
                         style=ButtonStyle.SECONDARY,
                         label="‎",

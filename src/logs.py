@@ -61,7 +61,7 @@ class DiscordLogger:
 
         embed.add_field(name="Command", value=f"`{get_slash_command(ctx)}`")
 
-        if(description):
+        if description:
             embed.add_field(name="Description", value=description)
 
         await logging_channel.send(embed=embed)

@@ -154,8 +154,8 @@ class Paginator(standard_paginator.Paginator):
             self._message = await channel.send(**self.to_dict())
             self._author_id = None if self.allow_multi_user else author_id
 
-        elif(ctx):
-            if(type(ctx) == SlashContext):
+        elif ctx:
+            if type(ctx) == SlashContext:
                 self._message = await ctx.send(**self.to_dict(), ephemeral=ephemeral)
             else:
                 self._message = await ctx.send(**self.to_dict())

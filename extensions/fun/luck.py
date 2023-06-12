@@ -52,7 +52,7 @@ class Luck(Extension):
         message = event.message
 
         # Ignore if sent by bot
-        if(message.author.bot):
+        if message.author.bot:
             return
 
         # Calculate message luck
