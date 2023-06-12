@@ -113,7 +113,7 @@ class Twenty48(Extension):
         # End button pressed, send confirmation modal
         if custom_id.endswith("end"):
             end_game_modal = Modal(
-                ShortText(label="Enter 'end' to end the game:", custom_id="text_input_response"),
+                ShortText(label="Enter 'end' to end the game:", custom_id="end_game_2048"),
                 title="End 2048 Game?",
                 custom_id="end_game_modal"
             )
@@ -174,8 +174,8 @@ class Twenty48(Extension):
 
     ### End Game Modal Callback ###
     @modal_callback("end_game_modal")
-    async def end_game_modal_callback(self, ctx: ComponentContext, text_input_response: str):
-        if text_input_response.lower() == "end":
+    async def end_game_modal_callback(self, ctx: ComponentContext, end_game_2048: str):
+        if end_game_2048.lower() == "end":
             user = UserData.get_user(ctx.author.id)
 
             await ctx.send(embeds=Embed(description="Ended the game.", color=Color.GREEN), ephemeral=True)
