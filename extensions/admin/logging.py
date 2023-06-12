@@ -19,6 +19,14 @@ import src.logs as logs
 from src.database import Config
 from lookups.colors import Color
 
+# TODO: universal interaction logging
+# Add logging for:
+#   - button presses
+#   - select menus
+#   - modals
+#   - user commands
+#   - message commands
+
 class Logging(Extension):
     def __init__(self, client: Client):
         self.client = client
