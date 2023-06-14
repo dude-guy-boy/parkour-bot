@@ -10,3 +10,4 @@ class Color:
     RED = 0xdb3535
     DARK = 0x2F3136
     GOLD = 0xFFD700
+    PINK = 0xf78686
