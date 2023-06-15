@@ -20,12 +20,13 @@ from interactions import (
 import src.logs as logs
 from lookups.colors import Color
 from src.database import UserData
-from interactions.models.internal.checks import TYPE_CHECK_FUNCTION
+from src.custompaginator import Paginator
 
 class Love(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
+        self.user_cache = []
 
     ### /CALCULATELOVE ###
     @slash_command(
@@ -33,36 +34,93 @@ class Love(Extension):
         description="Calculate how much two users love each other",
     )
     @slash_option(
-        name="user_1",
+        name="user1",
         description="The first user",
         required=True,
         opt_type=OptionType.USER
     )
     @slash_option(
-        name="user_2",
+        name="user2",
         description="The second user",
         required=True,
         opt_type=OptionType.USER
     )
-    async def calculate_love(self, ctx: SlashContext, user_1: Member, user_2: Member):
-        if user_1 == user_2:
+    async def calculate_love(self, ctx: SlashContext, user1: Member, user2: Member):
+        if user1 == user2:
             await ctx.send(embed=Embed(description="You can't choose the same user twice!", color=Color.RED))
             return
 
-        a = int(str(user_1.id)[-3:])
-        b = int(str(user_2.id)[-3:])
-
-        love_value = str(a*b)
-        love_value = int(love_value[1:3]) + 1
+        love_value = self.calculate_love_value(user1.id, user2.id)
 
         embed = Embed(color = self.rgb_to_hex(r = love_value*2.5))
-        embed.add_field(name = "User1 💕", value = user_1.mention, inline = True)
+        embed.add_field(name = "User1 💕", value = user1.mention, inline = True)
         embed.add_field(name = "🤔 Amount 🤔", value = f"😱 {love_value}% 😱", inline = True)
-        embed.add_field(name = "💕 User2", value = user_2.mention, inline = True)
+        embed.add_field(name = "💕 User2", value = user2.mention, inline = True)
 
         await ctx.send(embed=embed)
 
-    # TODO: Soulmate command
+    ### /SOULMATE ###
+    @slash_command(
+        name="soulmate",
+        description="Find your soulmates"
+    )
+    @slash_option(
+        name="user",
+        description="The user you want to get the soulmates of",
+        opt_type=OptionType.USER,
+        required=False
+    )
+    @slash_option(
+        name="percentage",
+        description="The percentage love you want to check for",
+        opt_type=OptionType.INTEGER,
+        required=False
+    )
+    async def soulmate(self, ctx: SlashContext, user: Member = None, percentage: int = 100):
+        await ctx.defer()
+
+        # Limit percentage
+        if percentage > 100:
+            percentage = 100
+        if percentage < 1:
+            percentage = 1
+
+        # If user is not specified, do it for whoever sent the command
+        if not user:
+            user = ctx.member
+
+        soulmates = []
+
+        # Find soulmates
+        for member in ctx.guild.members:
+            love = self.calculate_love_value(member.id, user.id)
+            if love == percentage:
+                soulmates.append(member)
+
+        # Send soulmates
+        if_percentage = f" `{percentage}%` " if percentage != 100 else " "
+        if_sender = f"You have" if user.id == ctx.author.id else f"{user.mention} has"
+        if_sender_one_soulmate = f"Your" if user.id == ctx.author.id else f"{user.mention}'s"
+
+        if not soulmates:
+            await ctx.send(embed=Embed(description=f"{if_sender} no{if_percentage}soulmates!", color=Color.RED))
+            return
+        
+        if len(soulmates) == 1:
+            await ctx.send(embed=Embed(description=f"{if_sender_one_soulmate} only{if_percentage}soulmate is {soulmates[0].mention}!", color=Color.GREEN))
+            return
+        
+        str_soulmates = "> " + "\n> ".join([soulmate.mention for soulmate in soulmates])
+        if_sender = f"You have" if user.id == ctx.author.id else f"{user.display_name} has"
+
+        soulmate_paginator = Paginator.create_from_string(self.bot, content=str_soulmates, num_lines=10, allow_multi_user=True)
+        soulmate_paginator.default_button_color = ButtonStyle.GRAY
+        soulmate_paginator.default_color = Color.GREEN
+        soulmate_paginator.default_title = f"{if_sender} `{len(soulmates)}`{if_percentage}soulmates!"
+
+        await soulmate_paginator.send(ctx)
+
+        # await ctx.send(embed=Embed(description=f"{if_sender} `{len(soulmates)}`{if_percentage}soulmates! Here they all are:\n{str_soulmates}", color=Color.GREEN))
 
     ### /PROPOSE TO ###
     @slash_command(
@@ -274,6 +332,14 @@ class Love(Extension):
                 return proposal['key']
 
         return None
+
+    # Calculates love value
+    def calculate_love_value(self, user1, user2):
+        a = int(str(user1)[-3:])
+        b = int(str(user2)[-3:])
+
+        love_value = str(a*b)
+        return int(love_value[1:3]) + 1
 
     # Converts rgb to hex for calculatelove embed colour
     def rgb_to_hex(self, r = 0, g = 0, b = 0):
