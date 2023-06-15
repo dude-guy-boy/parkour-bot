@@ -21,6 +21,8 @@ import src.logs as logs
 from lookups.colors import Color
 from src.database import UserData
 from src.custompaginator import Paginator
+from random import randint, choice
+from interactions.models.internal.checks import TYPE_CHECK_FUNCTION
 
 class Love(Extension):
     def __init__(self, client: Client):
@@ -213,7 +215,102 @@ class Love(Extension):
 
             UserData.delete_user(ctx.author.id, table="proposals")
 
-    # TODO: /baby (some % chance of it working, baby will be another user)
+    # TODO: /children user(optional option), gets list of users children, or yours if user not specified
+
+    # TODO: /spouse user, says who someones spouse is or yours if user not specified
+
+    ### /BABY ###
+    @slash_command(
+        name="baby",
+        description="Try to make a baby with your spouse!"
+    )
+    async def baby(self, ctx: SlashContext):
+        # Check if user is married
+        user = UserData.get_user(ctx.author.id)
+
+        if not user or 'spouse' not in user:
+            await ctx.send(embed=Embed(description="You need to be married to try to make a baby!", color=Color.RED), ephemeral=True)
+            return
+        
+        lover = user['spouse']
+
+        # Send message where lover needs to press a button within 10s
+        baby_button = Button(style=ButtonStyle.GRAY, emoji="👶", custom_id="make_baby")
+        baby_embed = Embed(description=f"{ctx.author.mention} wants to try make a baby with <@{lover}>! <@{lover}> needs to press the button below within 10 seconds to try!", color=Color.GREEN)
+        baby_message = await ctx.send(embed=baby_embed, components=baby_button)
+
+        component = None
+
+        try:
+            component = await self.bot.wait_for_component(
+                messages=baby_message,
+                components=baby_button,
+                timeout=10,
+                check=self.is_lover()
+            )
+
+        except TimeoutError:
+            baby_button.disabled = True
+            baby_button.style = ButtonStyle.RED
+            baby_embed.color = Color.RED
+
+            await baby_message.edit(embed=baby_embed, components=baby_button)
+            return
+        
+        # Baby button pressed
+        if randint(1, 20) != 1:
+            baby_button.style = ButtonStyle.RED
+            baby_button.disabled = True
+            baby_embed.color = Color.RED
+
+            await component.ctx.edit_origin(embed=baby_embed, components=baby_button)
+
+            await ctx.send(embed=Embed(description=f"Unlucky! <@{lover}> and {ctx.author.mention} weren't able to make a baby this time.", color=Color.RED))
+            return
+        
+        # Edit baby message
+        baby_button.style = ButtonStyle.GREEN
+        baby_button.disabled = True
+
+        await component.ctx.edit_origin(components=baby_button)
+
+        # Get random other player to be the baby
+        potential_babies = []
+        all_users = UserData.get_all_items()
+        all_children = [string for d in all_users if 'value' in d and 'children' in d['value'] for string in d['value']['children']] + [str(ctx.author.id), lover]
+        all_children = list(set(all_children))
+
+        # Only users who arent someones child already can be a new baby
+        for member in ctx.guild.members:
+            if str(member.id) not in all_children:
+                potential_babies.append(str(member.id))
+        
+        the_baby = None
+
+        try:
+            the_baby = choice(potential_babies)
+        except IndexError:
+            await ctx.send(embed=Embed(description="There are no babies left to have!", color=Color.RED), ephemeral=True)
+            return
+
+        # Update user
+        if 'children' not in user:
+            user['children'] = [the_baby]
+        else:
+            user['children'].append(the_baby)
+
+        UserData.set_user(ctx.author.id, data=user)
+
+        # Update lover
+        lover_data = UserData.get_user(lover)
+        if 'children' not in lover_data:
+            lover_data['children'] = [the_baby]
+        else:
+            lover_data['children'].append(the_baby)
+
+        UserData.set_user(lover, data=lover_data)
+
+        await ctx.send(embed=Embed(description=f"Congratulations! <@{lover}> and {ctx.author.mention} just had a baby and it's <@{the_baby}>!", color=Color.GREEN))
 
     ### /DIVORCE ###
     @slash_command(
@@ -227,6 +324,8 @@ class Love(Extension):
         if not user or 'spouse' not in user:
             await ctx.send(embed=Embed(description="You aren't married!", color=Color.RED), ephemeral=True)
             return
+        
+        lover = UserData.get_user(user["spouse"])
 
         # Prompt for reason
         modal = Modal(
@@ -241,10 +340,13 @@ class Love(Extension):
             modal_ctx: ModalContext = await self.bot.wait_for_modal(modal=modal, author=ctx.author)
             divorce_text = modal_ctx.responses['divorce_text']
 
-            UserData.delete_user(ctx.author.id)
-            UserData.delete_user(user['spouse'])
-
             await modal_ctx.send(embed=Embed(description=f"{ctx.author.mention} divorced <@{user['spouse']}> for reason:\n```{divorce_text}```", color=Color.RED))
+            
+            del lover["spouse"]
+            UserData.set_user(user['spouse'], data=lover)
+
+            del user["spouse"]
+            UserData.set_user(ctx.author.id, data=user)
         except:
             return
 
@@ -318,9 +420,15 @@ class Love(Extension):
 
         await ctx.send(embed=Embed(title="The proposal was accepted!", description=f"<@{proposer}> and {ctx.author.mention} just got MARRIED!!!\n👰🎉🍾🥂 Congratulations!! 🥂🍾🎉👰", color=Color.PINK))
 
+        lover = UserData.get_user(ctx.author.id)
+        lover["spouse"] = proposer
+
+        user = UserData.get_user(proposer)
+        user["spouse"] = str(ctx.author.id)
+
         # Do accept stuff
-        UserData.set_user(proposer, data={"spouse": str(ctx.author.id)})
-        UserData.set_user(ctx.author.id, data={"spouse": proposer})
+        UserData.set_user(proposer, data=user)
+        UserData.set_user(ctx.author.id, data=lover)
         UserData.delete_user(proposer, table="proposals")
 
     # Gets the proposer from proposal message button press
@@ -344,6 +452,24 @@ class Love(Extension):
     # Converts rgb to hex for calculatelove embed colour
     def rgb_to_hex(self, r = 0, g = 0, b = 0):
         return int(f"{int(r):02x}{int(g):02x}{int(b):02x}", 16)
+
+    # Is lover check function, checks if the person who uses a component is the lover of the 
+    def is_lover(self) -> TYPE_CHECK_FUNCTION:
+        """
+        Checks if the user who pressed the button is the right person
+        """
+
+        async def check(component) -> bool:
+            spouse_id = component.ctx.message.embeds[0].description.split("@")[1].split(">")[0]
+            spouse = UserData.get_user(spouse_id)
+
+            if str(component.ctx.author.id) == spouse['spouse']:
+                return True
+            
+            await component.ctx.send(embed=Embed(description="You aren't allowed to do that!", color=Color.RED), ephemeral=True)
+            return False
+
+        return check
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
