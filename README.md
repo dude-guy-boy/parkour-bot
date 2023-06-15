@@ -134,28 +134,43 @@ The four arrow buttons at the bottom let you choose your next move. When two til
 Like Minesweeper, there is also a 2048 leaderboard which is ranked based on high score.
 
 ### **45 Strafe**
-45
+45 Strafing is a popular and well-known parkour technique in the community. In Parkour Bot, it is a luck based game where you try to get a perfect 45.0° strafe.
 
 ## **Other Fun Stuff**
 
 ### **Polls**
+Through Parkour Bot users can create highly customisable polls, which are posted to #polls for everyone to see and answer if they please. Users can create anonymous polls, polls with images, polls with an attached thread and polls with custom emoji reactions.
 
-### **Lucky Messages**
+### **The Luck System**
+In the luck system any message can get lucky. All messages sent in the server have at least a 1/1000 chance of getting lucky, and are marked with reactions/responses when they do get lucky. The rarity of luck messages ranges in powers of 10 from one in a thousand to one in a billion.
+
+When a user receives a lucky message, they gain luck points equivalent to the rarity/1000. This is then saved to their luck profile where they can view their previous lucky messages, sorted by rarity. Their luck profile also shows their total messages, number of lucky messages and luckiness index (luck points * 1000 / total messages), and how they rank overall in the server luck leaderboard.
+
+The luck leaderboard can also be viewed to see where everyone places.
 
 ### **Jump Idea Generator**
+The jump idea generator can be used to come up with parkour jump ideas for you. It does so by choosing a random set of constraints based on the generators configuration. The generator allows you to select the minecraft version you want to generate for, and the types of blocks and mechanics you want to allow.
 
 ### **Spirit Animals**
+Ask Parkour Bot what your spirit animal is!
 
 ### **Love Calculator**
+Calculate how much you and another user are in love!
+
+### **Marriage and Babies**
+Marry other users, divorce them, try for a baby, the world is your oyster.
 
 ### **Mimicking**
+(Staff only) Mimick any other user you want to.
 
 ## **Utility Features**
 Parkour Bot also contains some useful features that arent relevant to parkour.
 
 ### **Todo Lists**
+Each user has access to their own todo list. They can add tasks to it, remove them, mark them as completed, and view everything they previously completed.
 
 ### **Time Checker**
+Users can set their timezone in the bot so that other users can check what time it is for them. They can also check what time it is in any timezone.
 
 ## Administrative Features
 Parkour Bot contains several useful administrative features
@@ -164,13 +179,15 @@ Parkour Bot contains several useful administrative features
 Parkour bot has an integrated system for managing server events. 
 
 ### **Bot Manager**
-The bot manager allows the bot to restart itself from discord, update itself from github and create regular backups.
+The bot manager allows the bot to restart itself from discord, update itself from github and create regular backups. You can also download copies of backups or logs through the manager.
 
 ### **Logging System**
+The logging system logs all commands, button presses, errors, and other bot interactions. All logging is saved to log files so they can be checked later to find issues or inappropriate behaviour. Many things are also logged in discord to a configurable logging channel.
 
 ### **Staff Application Handler**
 
 ### **Master Config & Data Storage System**
+Config and data files are handled by TinyDB. A simple interface has been created so that it is easy to get and set config parameters and user data.
 
 ### **Dynamic Help Command**
 The help command should show users only the commands they have permission to perform.
