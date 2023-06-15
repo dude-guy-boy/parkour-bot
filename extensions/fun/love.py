@@ -215,9 +215,63 @@ class Love(Extension):
 
             UserData.delete_user(ctx.author.id, table="proposals")
 
-    # TODO: /children user(optional option), gets list of users children, or yours if user not specified
+    ### /CHILDREN user ###
+    @slash_command(
+        name="children",
+        description="Get a list of a users children"
+    )
+    @slash_option(
+        name="user",
+        description="The user you want to check the spouse of",
+        opt_type=OptionType.USER,
+        required=False
+    )
+    async def check_children(self, ctx: SlashContext, user: Member = None):
+        if not user:
+            user = ctx.member
 
-    # TODO: /spouse user, says who someones spouse is or yours if user not specified
+        user_data = UserData.get_user(user.id)
+
+        if not user_data or 'children' not in user_data:
+            await ctx.send(embed=Embed(description=f"{user.mention} has no children!", color=Color.RED))
+            return
+        
+        children = "> " + "\n> ".join([f"<@{child}>" for child in user_data["children"]])
+
+        children_paginator = Paginator.create_from_string(
+            self.bot,
+            content=children,
+            num_lines=10,
+            allow_multi_user=True
+            )
+        children_paginator.default_button_color = ButtonStyle.GRAY
+        children_paginator.default_color = Color.GREEN
+        children_paginator.default_title = f"{user.display_name}'s Children"
+
+        await children_paginator.send(ctx)
+
+    ### /SPOUSE user ###
+    @slash_command(
+        name="spouse",
+        description="Check who a user is married to"
+    )
+    @slash_option(
+        name="user",
+        description="The user you want to check the spouse of",
+        opt_type=OptionType.USER,
+        required=False
+    )
+    async def check_spouse(self, ctx: SlashContext, user: Member = None):
+        if not user:
+            user = ctx.member
+        
+        user_data = UserData.get_user(user.id)
+
+        if not user_data or 'spouse' not in user_data:
+            await ctx.send(embed=Embed(description=f"{user.mention} is not married!", color=Color.RED))
+            return
+        
+        await ctx.send(embed=Embed(description=f"{user.mention} is married to <@{user_data['spouse']}>", color=Color.GREEN))
 
     ### /BABY ###
     @slash_command(
