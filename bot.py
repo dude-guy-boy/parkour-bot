@@ -28,10 +28,11 @@ async def main():
     bot = Client(
         token = TOKEN,
         auto_defer = False,
-        intents = Intents.DEFAULT | Intents.MESSAGE_CONTENT,
+        intents = Intents.DEFAULT | Intents.MESSAGE_CONTENT | Intents.GUILD_MEMBERS,
         debug_scope = DEBUG_SCOPE,
         disable_dm_commands = True,
         basic_logging = False,
+        fetch_members=True
         # logger = logger
         )
     
