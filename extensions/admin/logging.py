@@ -68,7 +68,7 @@ class Logging(Extension):
 
         # Process as slash command
         command = self.get_slash_command(event.ctx)
-        self.slash_logger.info(f"{event.ctx.user.username}#{event.ctx.user.discriminator} performed the command '{command}' in #{event.ctx.channel.name}")
+        self.slash_logger.info(f"{event.ctx.user.username} performed the command '{command}' in #{event.ctx.channel.name}")
 
     ### /CONFIG LOGGING SET-CHANNEL ###
     @slash_command(
