@@ -12,6 +12,7 @@ config/
 data/
 logs/
 backups/
+images/
 *.code-workspace
 .DS_Store
 testing.py
