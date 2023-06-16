@@ -41,6 +41,7 @@ async def main():
 
     # Create base folders
     Directory("./data/").create()
+    Directory("./images/").create()
     Directory("./config/").create()
     Directory("./logs/").create()
 
