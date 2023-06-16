@@ -1,12 +1,14 @@
 # love.py
 
 from interactions import (
+    Buckets,
     Button,
     ButtonStyle,
     Client,
     ComponentContext,
     Extension,
     ModalContext,
+    cooldown,
     slash_command,
     slash_option,
     SlashContext,
@@ -277,6 +279,11 @@ class Love(Extension):
     @slash_command(
         name="baby",
         description="Try to make a baby with your spouse!"
+    )
+    @cooldown(
+        bucket=Buckets.USER,
+        rate=1,
+        interval=300
     )
     async def baby(self, ctx: SlashContext):
         # Check if user is married
