@@ -1,13 +1,18 @@
 # polls.py
 
+from math import fabs
+import os
 from interactions import (
     Attachment,
     Client,
     EmbedAttachment,
+    EmbedAuthor,
     Extension,
     File,
     Guild,
     Role,
+    SlashCommand,
+    Timestamp,
     slash_command,
     slash_option,
     SlashContext,
@@ -17,21 +22,219 @@ from interactions import (
     ButtonStyle,
     AutocompleteContext,
     GuildChannel,
-    SlashCommandChoice
+    SlashCommandChoice,
+    Task,
+    IntervalTrigger
     )
 import requests
 import src.logs as logs
 from lookups.colors import Color
 from src.database import Config, Data
 import re, emoji
+from src.files import File as BotFile
+from datetime import datetime, timedelta
 
 class Polls(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
+        self.emoji_poll_finisher.start()
 
+    # TODO: add polln't functionality
     # TODO: Add emoji-polls, sticker-polls
     # Polls that ask to add / remove an emoji or sticker
+    # TODO: Remove emoji polls, sticker polls
+
+    ### /EMOJI-POLL ###
+    emoji_poll = SlashCommand(name="emoji-poll", description="base emoji-poll command")
+
+    @emoji_poll.subcommand(
+        sub_cmd_name="add-emoji",
+        sub_cmd_description="Make a poll to add an emoji"
+    )
+    @slash_option(
+        name="name",
+        description="The name of the emoji you are suggesting",
+        opt_type=OptionType.STRING,
+        required=True
+    )
+    @slash_option(
+        name="image",
+        description="The image of the emoji you suggest adding",
+        opt_type=OptionType.ATTACHMENT,
+        required=True
+    )
+    async def emoji_poll_add(self, ctx: SlashContext, name: str, image: Attachment):
+        await ctx.defer(ephemeral=True)
+
+        # Get emoji numbers so it can be checked if limit is reached
+        num_allowed_emojis = ctx.guild.emoji_limit
+        all_custom_emojis = await ctx.guild.fetch_all_custom_emojis()
+        num_animated_emojis = 0
+        
+        for emoji in all_custom_emojis:
+            if emoji.animated:
+                num_animated_emojis += 1
+
+        num_custom_emojis = len(all_custom_emojis) - num_animated_emojis
+
+        # Check that emoji name fits discord requirements
+        name = name.strip(":")
+
+        if not self.check_emoji_name(name):
+            await ctx.send(embed=Embed(title="Bad emoji name", description=f"The emoji name you entered (`{name}`) does not meet discord's requirements. Emoji names must be longer than 2 characters and contain only alphanumeric characters and underscores.", color=Color.RED), ephemeral=True)
+            return
+
+        # Check that attachment is an image
+        if not image.filename.lower().endswith((".png", ".jpeg", ".gif")):
+            await ctx.send(embed=Embed(title="Bad emoji file format", description=f"The `.{image.filename.split('.')[-1]}` file format cannot be used. Emoji images must be JPEG, PNG or GIF.", color=Color.RED), ephemeral=True)
+            return
+
+        # Check if animated emoji limit reached
+        if image.filename.lower().endswith(".gif") and num_animated_emojis >= num_allowed_emojis:
+            await ctx.send(embed=Embed(title="Animated emoji limit reached", description=f"The server has already hit the animated emoji limit! To make room for a new animated emoji you could make an emoji poll to remove an existing animated emoji.", color=Color.RED), ephemeral=True)
+            return
+
+        # Check if custom emoji limit reached
+        if image.filename.lower().endswith((".png", ".jpeg")) and num_custom_emojis >= num_allowed_emojis:
+            await ctx.send(embed=Embed(title="Custom emoji limit reached", description=f"The server has already hit the custom emoji limit! To make room for a new custom emoji you could make an emoji poll to remove an existing custom emoji.", color=Color.RED), ephemeral=True)
+            return
+
+        # Download image
+        image_name = name
+        image_extension = image.filename.split(".")[-1]
+        image_filename = f"emojipoll_{image_name}_{self.next_image_index('emojipoll')}.{image_extension}"
+        image_filepath = f"./images/{image_filename}"
+        
+        response = requests.get(image.url, stream=True)
+        
+        with open(image_filepath, 'wb') as f:
+            f.write(response.content)
+
+        size = os.path.getsize(image_filepath)
+
+        # Check that image is within size limit
+        if size > 256000:
+            await ctx.send(embed=Embed(title="Image too large", description=f"Discord allows emojis to have a max file size of 256KB! The image you uploaded is `{round(size/1000, 2)}KB`.", color=Color.RED), ephemeral=True)
+            return
+
+        # Get the poll channel
+        polls_channel_id = Config.get_config_parameter("poll_channel_id")
+        if not polls_channel_id:
+            await ctx.send(embeds=Embed(description="The poll channel could not be found :sob:. Please notify a staff member", color=Color.RED))
+            return
+
+        # Get emoji poll number
+        try:
+            poll_number = Data.get_data_item("emoji_poll_number")
+        except:
+            poll_number = 1
+
+        # Send the poll
+        embed = Embed(
+            title=f"Emoji Poll #{poll_number}",
+            description=f"{ctx.author.mention} is suggesting adding the emoji below as `:{name}:`",
+            color=Color.YORANGE,
+            author=EmbedAuthor(name=f"{ctx.member.user.display_name}", icon_url=ctx.member.user.avatar.url),
+            images=EmbedAttachment(url=f"attachment://{image_filename}"),
+            footer="The outcome will be decided in 24 Hours!"
+        )
+
+        polls_channel = await ctx.guild.fetch_channel(polls_channel_id)
+        poll = await polls_channel.send(embed = embed, file=File(image_filepath))
+
+        # Increment poll number
+        poll_number += 1
+        Data.set_data_item("emoji_poll_number", poll_number)
+
+        # Add poll reactions
+        for emoji in ("✅", "❌"):
+            await poll.add_reaction(emoji)
+
+        # Respond to the user
+        await ctx.send(embeds=Embed(description="Successfully sent your emoji poll!", color=Color.GREEN), ephemeral=True)
+
+        # Save poll and emoji info to data, as well as end time
+        time = datetime.utcnow() + timedelta(days=1)
+        Data.set_data_item(key=str(poll.id), value={"channel_id": str(poll.channel.id), "end_time": time.strftime("%d/%m/%Y, %H:%M"), "emoji_image_path": image_filepath, "emoji_name": name}, table="emoji_polls")
+
+        # Log poll
+        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created an emoji poll\nName: `{name}`\nimage: `{image.url}`")
+
+        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll. Name: '{name}', image: '{image.url}'")
+
+    # Task that finished emoji polls
+    @Task.create(IntervalTrigger(minutes=1))
+    async def emoji_poll_finisher(self):
+        time = datetime.utcnow().replace(second=0, microsecond=0)
+
+        for poll in Data.get_all_items(table="emoji_polls"):
+            # Check if poll should end now
+            # if time == datetime.strptime(poll['value']['end_time'], "%d/%m/%Y, %H:%M"): # TODO: Uncomment
+            if True:
+                # Determine the result of the poll
+
+                # Get poll message
+                poll_channel = await self.bot.fetch_channel(poll['value']['channel_id'])
+                poll_message = await poll_channel.fetch_message(poll['key'])
+                poll_embed = poll_message.embeds[0]
+
+                # Check reactions
+                yes_reactions = len(await poll_message.fetch_reaction("✅")) - 1
+                no_reactions = len(await poll_message.fetch_reaction("❌")) - 1
+
+                print(yes_reactions, no_reactions)
+
+                # Edit embed with results and send update message
+
+                # Equal votes
+                if no_reactions == yes_reactions:
+                    poll_embed.color = Color.YORANGE
+                    poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                    poll_embed.footer = "This poll has ended. The results were too close to call, so the emoji hasn't been added."
+                    # poll_embed.image =
+                    # print(poll_embed.image, poll_embed.images, poll_message.embeds)
+                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
+                    await poll_channel.send(embed=Embed(description=f"Voting for the emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was equal! The results were `Yes ({yes_reactions}), No ({no_reactions})`. Because of this, it will not be added.", color=Color.YORANGE))    
+                
+                # Emoji rejected
+                if no_reactions > yes_reactions:
+                    poll_embed.color = Color.RED
+                    poll_embed.description = poll_embed.description + f"\n```Results: No ({no_reactions}), Yes ({yes_reactions})```"
+                    poll_embed.footer = "This poll has ended. The suggested emoji was rejected."
+                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
+                    await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was rejected! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It will not be added.", color=Color.RED))
+
+                # Emoji accepted
+                if yes_reactions > no_reactions:
+                    poll_embed.color = Color.GREEN
+                    poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                    poll_embed.footer = "This poll has ended. The suggested emoji was accepted."
+                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
+                    await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was accepted! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It has now been added for everyone to use! `:{new_emoji.name}:`: {new_emoji}{new_emoji}{new_emoji}{new_emoji}{new_emoji}", color=Color.GREEN))
+
+                    # Add the emoji
+                    guild = poll_channel.guild
+                    new_emoji = await guild.create_custom_emoji(name = poll['value']['emoji_name'], imagefile=File(poll['value']['emoji_image_path']), reason="Emoji Poll Accepted")
+
+                # Delete poll data and image file
+                Data.delete_item(poll, table="emoji_polls")
+
+    # Checks if emoji name meets discord requirements
+    def check_emoji_name(self, name):
+        return len(name) > 2 and re.match("^[a-zA-Z0-9_]+$", name)
+    
+    # Gets the next index for an image with the given start string
+    def next_image_index(self, start: str):
+        directory = './images/'
+        files = [f.split(".")[0] for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        matching_files = [f for f in files if f.startswith(start)]
+        numbers = [int(re.findall(r'^\D*(\d*)$', f)[0]) for f in matching_files if re.findall(r'^\D*(\d*)$', f)]
+        
+        if numbers:
+            return max(numbers) + 1
+        
+        return 0
 
     ### /POLL ###
     @slash_command(
@@ -197,14 +400,17 @@ class Polls(Extension):
         # Respond to the user
         await ctx.send(embeds=Embed(description="Successfully sent your poll!", color=Color.GREEN), ephemeral=True)
 
-        # Log anonymous polls
-        # TODO: Improve logging
-        if anonymous:
-            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} created an anonymous poll: `{question}`, Thread: {thread}, Emojis: {', '.join(emoji_list)}")
-        else:
-            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} created a poll: `{question}`, Thread: {thread}, Emojis: {', '.join(emoji_list)}")
+        # Delete image if it exists
+        if image:
+            BotFile(f"./images/poll_{image.filename}").delete()
 
-        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll: '{question}', Anonymous: {anonymous}, Thread: {thread}, Emojis: {emoji_list}")
+        # Log anonymous polls
+        if anonymous:
+            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} {ctx.author.display_name} created an anonymous poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\nimage: `{image.url}`")
+        else:
+            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\nimage: `{image.url}`")
+
+        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, image: '{image.url}'")
 
     # Checks if the input emojis are accessible by the bot
     async def check_accessible_emojis(self, guild: Guild, emoji_list):
@@ -235,6 +441,7 @@ class Polls(Extension):
         
         return refined_emoji_list, duplicate_emojis
 
+    # Gets a list of emojis from a string
     def get_emojis(self, emoji_string):
         # Extract unicode and custom emojis from the string
         emoji_list = emoji.emoji_list(emoji_string)
@@ -245,6 +452,7 @@ class Polls(Extension):
 
         return [emoji['emoji'] for emoji in emoji_list]
 
+    # Gets a list of custom emojis from a string
     def custom_emoji_list(self, emoji_string):
         emoji_list = []
         emoji_start = None
@@ -258,6 +466,7 @@ class Polls(Extension):
         
         return emoji_list
 
+    # Checks if a question string contains any text
     def check_valid_question(self, question):
         return not re.match(r'^[_\W]+$', question)
 
@@ -280,7 +489,7 @@ class Polls(Extension):
         Config.set_config_parameter("poll_channel_id", str(channel.id))
         await ctx.send(embed=Embed(description=f"Successfully set the poll channel to {channel.mention}", color=Color.GREEN), ephemeral=True)
 
-     ### /CONFIG POLLS SET-POLLNT ###
+    ### /CONFIG POLLS SET-POLLNT ###
     @slash_command(
         name="config",
         description="base config command",
