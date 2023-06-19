@@ -1,6 +1,6 @@
 # polls.py
 
-from math import fabs
+from collections import OrderedDict
 import os
 from interactions import (
     Attachment,
@@ -12,7 +12,7 @@ from interactions import (
     Guild,
     Role,
     SlashCommand,
-    Timestamp,
+    listen,
     slash_command,
     slash_option,
     SlashContext,
@@ -20,12 +20,12 @@ from interactions import (
     Embed,
     Button,
     ButtonStyle,
-    AutocompleteContext,
     GuildChannel,
     SlashCommandChoice,
     Task,
     IntervalTrigger
     )
+from interactions.api.events.discord import MessageDelete
 import requests
 import src.logs as logs
 from lookups.colors import Color
@@ -38,16 +38,96 @@ class Polls(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
-        self.emoji_poll_finish.start()
+        self.emoji_add_poll_finish.start()
+        self.emoji_remove_poll_finish.start()
 
     # TODO: add polln't functionality
-    # TODO: Add emoji-polls, sticker-polls
-    # Polls that ask to add / remove an emoji or sticker
-    # TODO: Remove emoji polls, sticker polls
+    # TODO: Add sticker-polls
 
     ### /EMOJI-POLL ###
     emoji_poll = SlashCommand(name="emoji-poll", description="base emoji-poll command")
 
+    ### /EMOJI-POLL REMOVE-EMOJI ###
+    @emoji_poll.subcommand(
+        sub_cmd_name="remove-emoji",
+        sub_cmd_description="Make a poll to remove an emoji"
+    )
+    @slash_option(
+        name="emoji",
+        description="The emoji you are suggesting to remove",
+        opt_type=OptionType.STRING,
+        required=True
+    )
+    async def emoji_poll_remove(self, ctx: SlashContext, emoji: str):
+        await ctx.defer(ephemeral=True)
+
+        input_emoji_list = [input_emoji['emoji'] for input_emoji in self.custom_emoji_list(emoji)]
+        accessible_emojis, inaccessible_emojis = await self.check_accessible_emojis(ctx.guild, input_emoji_list)
+
+        # Check if no custom emoji input
+        if len(input_emoji_list) == 0:
+            await ctx.send(embed=Embed(title="No Custom Emoji Input", description="You didn't enter a custom emoji! You need to enter one of the servers emojis.", color=Color.RED), ephemeral=True)
+            return
+
+        # Check if more than one emoji input
+        if len(input_emoji_list) > 1:
+            await ctx.send(embed=Embed(title="Multiple Emojis Input", description="You entered multiple emojis! You can only enter one emoji.", color=Color.RED), ephemeral=True)
+            return
+
+        # Check if input emoji is inaccessible
+        if not accessible_emojis and inaccessible_emojis:
+            await ctx.send(embed=Embed(title="External Emoji Entered", description="You entered an emoji from another server! You can only enter emojis from this server.", color=Color.RED), ephemeral=True)
+            return
+
+        emoji = accessible_emojis[0]
+        emoji_name = emoji.split(":")[1]
+
+        # Make poll to remove it
+        # Get the poll channel
+        polls_channel_id = Config.get_config_parameter("poll_channel_id")
+        if not polls_channel_id:
+            await ctx.send(embeds=Embed(description="The poll channel could not be found :sob:. Please notify a staff member", color=Color.RED))
+            return
+
+        # Get emoji poll number
+        try:
+            poll_number = Data.get_data_item("emoji_poll_number")
+        except:
+            poll_number = 1
+
+        # Send the poll
+        embed = Embed(
+            title=f"Emoji Poll #{poll_number}",
+            description=f"{ctx.author.mention} is suggesting removing the emoji `:{emoji_name}:` {emoji}",
+            color=Color.YORANGE,
+            author=EmbedAuthor(name=f"{ctx.member.user.display_name}", icon_url=ctx.member.user.avatar.url),
+            footer="The outcome will be decided in 24 Hours!"
+        )
+
+        polls_channel = await ctx.guild.fetch_channel(polls_channel_id)
+        poll = await polls_channel.send(embed = embed)
+
+        # Increment poll number
+        poll_number += 1
+        Data.set_data_item("emoji_poll_number", poll_number)
+
+        # Add poll reactions
+        for reaction_emoji in ("✅", "❌"):
+            await poll.add_reaction(reaction_emoji)
+
+        # Respond to the user
+        await ctx.send(embeds=Embed(description="Successfully sent your emoji poll!", color=Color.GREEN), ephemeral=True)
+
+        # Save poll and emoji info to data, as well as end time
+        time = datetime.utcnow() + timedelta(days=1)
+        Data.set_data_item(key=str(poll.id), value={"channel_id": str(poll.channel.id), "end_time": time.strftime("%d/%m/%Y, %H:%M"), "emoji": emoji}, table="emoji_polls")
+
+        # Log poll
+        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created an emoji poll to remove {emoji}")
+
+        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll to remove {emoji}")
+
+    ### /EMOJI-POLL ADD-EMOJI ###
     @emoji_poll.subcommand(
         sub_cmd_name="add-emoji",
         sub_cmd_description="Make a poll to add an emoji"
@@ -168,9 +248,8 @@ class Polls(Extension):
 
         self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll. Name: '{name}', image: '{image.url}'")
 
-    # Task that finished emoji polls
     @Task.create(IntervalTrigger(minutes=1))
-    async def emoji_poll_finish(self):
+    async def emoji_remove_poll_finish(self):
         time = datetime.utcnow().replace(second=0, microsecond=0)
 
         for poll in Data.get_all_items(table="emoji_polls"):
@@ -178,6 +257,83 @@ class Polls(Extension):
             if time != datetime.strptime(poll['value']['end_time'], "%d/%m/%Y, %H:%M"):
                 return
             
+            # Ignore add emoji polls
+            if "emoji" not in poll['value']:
+                return
+            
+            # Determine the result of the poll
+
+            # Get poll message
+            poll_channel = await self.bot.fetch_channel(poll['value']['channel_id'])
+            poll_message = await poll_channel.fetch_message(poll['key'])
+            poll_embed = poll_message.embeds[0]
+
+            # Check reactions
+            yes_reactions = len(await poll_message.fetch_reaction("✅")) - 1
+            no_reactions = len(await poll_message.fetch_reaction("❌")) - 1
+
+            # Edit embed with results and send update message
+
+            # Equal votes
+            if no_reactions == yes_reactions:
+                poll_embed.color = Color.YORANGE
+                poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                poll_embed.footer = "This poll has ended. The results were too close to call, so the emoji hasn't been removed."
+                await poll_message.edit(embed=poll_embed)
+                await poll_channel.send(embed=Embed(description=f"Voting to remove the emoji ({poll['value']['emoji']}) suggested in [{poll_embed.title}]({poll_message.jump_url}) was equal! The results were `Yes ({yes_reactions}), No ({no_reactions})`. Because of this, it will not be removed.", color=Color.YORANGE))    
+            
+            # Emoji rejected
+            if no_reactions > yes_reactions:
+                poll_embed.color = Color.RED
+                poll_embed.description = poll_embed.description + f"\n```Results: No ({no_reactions}), Yes ({yes_reactions})```"
+                poll_embed.footer = "This poll has ended. The suggested emoji was not removed."
+                await poll_message.edit(embed=poll_embed)
+                await poll_channel.send(embed=Embed(description=f"The emoji suggested for removal ({poll['value']['emoji']}) in [{poll_embed.title}]({poll_message.jump_url}) was not removed! The results were `Yes ({yes_reactions}), No ({no_reactions})`.", color=Color.RED))
+
+            # Emoji accepted
+            if yes_reactions > no_reactions:
+                # Update embed and send update message
+                poll_embed.color = Color.GREEN
+                poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                poll_embed.footer = "This poll has ended. The suggested emoji was removed."
+                await poll_message.edit(embed=poll_embed)
+                await poll_channel.send(embed=Embed(description=f"The emoji suggested for removal ({poll['value']['emoji']}) in [{poll_embed.title}]({poll_message.jump_url}) was removed! The results were `Yes ({yes_reactions}), No ({no_reactions})`.", color=Color.GREEN))
+
+                # Remove the emoji
+                guild = poll_channel.guild
+                the_emoji = await guild.fetch_custom_emoji(int((poll['value']['emoji']).split(":")[-1][:-1]))
+                await the_emoji.delete(reason="Emoji Poll")
+
+            # Delete poll data
+            Data.delete_item(poll, table="emoji_polls")
+
+    # Removes emoji poll data if the emoji poll is deleted
+    @listen("on_message_delete")
+    async def on_poll_delete(self, event: MessageDelete):
+        # Check if the deleted message is a poll
+        poll_channel_id = Config.get_config_parameter("poll_channel_id")
+        if str(event.message.channel.id) == poll_channel_id:
+            # It was a poll!
+            emoji_polls = Data.get_all_items(table="emoji_polls")
+
+            for poll in emoji_polls:
+                if str(event.message.id) == poll['key']:
+                    Data.delete_item(poll, table="emoji_polls")
+
+    # Task that finished emoji polls
+    @Task.create(IntervalTrigger(minutes=1))
+    async def emoji_add_poll_finish(self):
+        time = datetime.utcnow().replace(second=0, microsecond=0)
+
+        for poll in Data.get_all_items(table="emoji_polls"):
+            # Ignore if poll doesn't end now
+            if time != datetime.strptime(poll['value']['end_time'], "%d/%m/%Y, %H:%M"):
+                return
+            
+            # Ignore remove emoji polls
+            if 'emoji' in poll['value']:
+                continue
+
             # Determine the result of the poll
 
             # Get poll message
@@ -412,39 +568,36 @@ class Polls(Extension):
         if image:
             BotFile(f"./images/poll_{image.filename}").delete()
 
+        if_image = "" if not image else f"image: `{image.url}`"
+
         # Log anonymous polls
         if anonymous:
-            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} {ctx.author.display_name} created an anonymous poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\nimage: `{image.url}`")
+            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} {ctx.author.display_name} created an anonymous poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
         else:
-            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\nimage: `{image.url}`")
+            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
 
-        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, image: '{image.url}'")
+        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, {if_image}'")
 
     # Checks if the input emojis are accessible by the bot
     async def check_accessible_emojis(self, guild: Guild, emoji_list):
         guild_emojis = await guild.fetch_all_custom_emojis()
-        guild_emoji_list = []
+
+        str_guild_emojis = [str(emoji) for emoji in guild_emojis]
         accessible_emoji_list = []
         inaccessible_emoji_list = []
 
-        for emoji in guild_emojis:
-            guild_emoji_list.append(f"<:{emoji.name}:{emoji.id}>")
-
         for emoji in emoji_list:
-            if not emoji.startswith("<"):
+            if not emoji.startswith("<") or emoji in str_guild_emojis:
                 accessible_emoji_list.append(emoji)
                 continue
 
-            if emoji in guild_emoji_list:
-                accessible_emoji_list.append(emoji)
-            else:
-                inaccessible_emoji_list.append(emoji)                
+            inaccessible_emoji_list.append(emoji)             
 
         return accessible_emoji_list, inaccessible_emoji_list
 
     # Checks if the input emojis contain any duplicates
     def check_duplicate_emojis(self, emoji_list):
-        refined_emoji_list = list(set(emoji_list))
+        refined_emoji_list = list(OrderedDict.fromkeys(emoji_list))
         duplicate_emojis = [emoji for emoji in emoji_list if emoji_list.count(emoji) > 1]
         
         return refined_emoji_list, duplicate_emojis
