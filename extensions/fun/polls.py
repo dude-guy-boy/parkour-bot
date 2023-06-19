@@ -38,7 +38,7 @@ class Polls(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
-        self.emoji_poll_finisher.start()
+        self.emoji_poll_finish.start()
 
     # TODO: add polln't functionality
     # TODO: Add emoji-polls, sticker-polls
@@ -80,10 +80,15 @@ class Polls(Extension):
 
         # Check that emoji name fits discord requirements
         name = name.strip(":")
-
         if not self.check_emoji_name(name):
             await ctx.send(embed=Embed(title="Bad emoji name", description=f"The emoji name you entered (`{name}`) does not meet discord's requirements. Emoji names must be longer than 2 characters and contain only alphanumeric characters and underscores.", color=Color.RED), ephemeral=True)
             return
+        
+        # Check if emoji name already taken
+        for emoji in all_custom_emojis:
+            if emoji.name.lower() == name.lower():
+                await ctx.send(embed=Embed(title="Emoji Name Taken", description=f"An emoji with the name `:{emoji.name}:` already exists. Please choose another name and try again.", color=Color.RED), ephemeral=True)
+                return
 
         # Check that attachment is an image
         if not image.filename.lower().endswith((".png", ".jpeg", ".gif")):
@@ -99,7 +104,7 @@ class Polls(Extension):
         if image.filename.lower().endswith((".png", ".jpeg")) and num_custom_emojis >= num_allowed_emojis:
             await ctx.send(embed=Embed(title="Custom emoji limit reached", description=f"The server has already hit the custom emoji limit! To make room for a new custom emoji you could make an emoji poll to remove an existing custom emoji.", color=Color.RED), ephemeral=True)
             return
-
+        
         # Download image
         image_name = name
         image_extension = image.filename.split(".")[-1]
@@ -165,60 +170,63 @@ class Polls(Extension):
 
     # Task that finished emoji polls
     @Task.create(IntervalTrigger(minutes=1))
-    async def emoji_poll_finisher(self):
+    async def emoji_poll_finish(self):
         time = datetime.utcnow().replace(second=0, microsecond=0)
 
         for poll in Data.get_all_items(table="emoji_polls"):
-            # Check if poll should end now
-            # if time == datetime.strptime(poll['value']['end_time'], "%d/%m/%Y, %H:%M"): # TODO: Uncomment
-            if True:
-                # Determine the result of the poll
+            # Ignore if poll doesn't end now
+            if time != datetime.strptime(poll['value']['end_time'], "%d/%m/%Y, %H:%M"):
+                return
+            
+            # Determine the result of the poll
 
-                # Get poll message
-                poll_channel = await self.bot.fetch_channel(poll['value']['channel_id'])
-                poll_message = await poll_channel.fetch_message(poll['key'])
-                poll_embed = poll_message.embeds[0]
+            # Get poll message
+            poll_channel = await self.bot.fetch_channel(poll['value']['channel_id'])
+            poll_message = await poll_channel.fetch_message(poll['key'])
+            poll_embed = poll_message.embeds[0]
 
-                # Check reactions
-                yes_reactions = len(await poll_message.fetch_reaction("✅")) - 1
-                no_reactions = len(await poll_message.fetch_reaction("❌")) - 1
+            # Check reactions
+            yes_reactions = len(await poll_message.fetch_reaction("✅")) - 1
+            no_reactions = len(await poll_message.fetch_reaction("❌")) - 1
 
-                print(yes_reactions, no_reactions)
+            # Edit embed with results and send update message
 
-                # Edit embed with results and send update message
+            emoji_image_file = File(poll['value']['emoji_image_path'])
 
-                # Equal votes
-                if no_reactions == yes_reactions:
-                    poll_embed.color = Color.YORANGE
-                    poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
-                    poll_embed.footer = "This poll has ended. The results were too close to call, so the emoji hasn't been added."
-                    # poll_embed.image =
-                    # print(poll_embed.image, poll_embed.images, poll_message.embeds)
-                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
-                    await poll_channel.send(embed=Embed(description=f"Voting for the emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was equal! The results were `Yes ({yes_reactions}), No ({no_reactions})`. Because of this, it will not be added.", color=Color.YORANGE))    
-                
-                # Emoji rejected
-                if no_reactions > yes_reactions:
-                    poll_embed.color = Color.RED
-                    poll_embed.description = poll_embed.description + f"\n```Results: No ({no_reactions}), Yes ({yes_reactions})```"
-                    poll_embed.footer = "This poll has ended. The suggested emoji was rejected."
-                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
-                    await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was rejected! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It will not be added.", color=Color.RED))
+            # Equal votes
+            if no_reactions == yes_reactions:
+                poll_embed.color = Color.YORANGE
+                poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                poll_embed.footer = "This poll has ended. The results were too close to call, so the emoji hasn't been added."
+                poll_embed.image = EmbedAttachment(url=f"attachment://{emoji_image_file.file_name}")
+                await poll_message.edit(embed=poll_embed, file=emoji_image_file)
+                await poll_channel.send(embed=Embed(description=f"Voting for the emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was equal! The results were `Yes ({yes_reactions}), No ({no_reactions})`. Because of this, it will not be added.", color=Color.YORANGE))    
+            
+            # Emoji rejected
+            if no_reactions > yes_reactions:
+                poll_embed.color = Color.RED
+                poll_embed.description = poll_embed.description + f"\n```Results: No ({no_reactions}), Yes ({yes_reactions})```"
+                poll_embed.footer = "This poll has ended. The suggested emoji was rejected."
+                poll_embed.image = EmbedAttachment(url=f"attachment://{emoji_image_file.file_name}")
+                await poll_message.edit(embed=poll_embed, file=emoji_image_file)
+                await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was rejected! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It will not be added.", color=Color.RED))
 
-                # Emoji accepted
-                if yes_reactions > no_reactions:
-                    poll_embed.color = Color.GREEN
-                    poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
-                    poll_embed.footer = "This poll has ended. The suggested emoji was accepted."
-                    await poll_message.edit(embed=poll_embed, attachments=poll_message.attachments)
-                    await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was accepted! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It has now been added for everyone to use! `:{new_emoji.name}:`: {new_emoji}{new_emoji}{new_emoji}{new_emoji}{new_emoji}", color=Color.GREEN))
+            # Emoji accepted
+            if yes_reactions > no_reactions:
+                # Add the emoji
+                guild = poll_channel.guild
+                new_emoji = await guild.create_custom_emoji(name = poll['value']['emoji_name'], imagefile=File(poll['value']['emoji_image_path']), reason="Emoji Poll Accepted")
 
-                    # Add the emoji
-                    guild = poll_channel.guild
-                    new_emoji = await guild.create_custom_emoji(name = poll['value']['emoji_name'], imagefile=File(poll['value']['emoji_image_path']), reason="Emoji Poll Accepted")
+                # Update embed and send update message
+                poll_embed.color = Color.GREEN
+                poll_embed.description = poll_embed.description + f"\n```Results: Yes ({yes_reactions}), No ({no_reactions})```"
+                poll_embed.footer = "This poll has ended. The suggested emoji was accepted."
+                poll_embed.image = EmbedAttachment(url=f"attachment://{emoji_image_file.file_name}")
+                await poll_message.edit(embed=poll_embed, file=emoji_image_file)
+                await poll_channel.send(embed=Embed(description=f"The emoji suggested in [{poll_embed.title}]({poll_message.jump_url}) was accepted! The results were `Yes ({yes_reactions}), No ({no_reactions})`. It has now been added for everyone to use! `:{new_emoji.name}:`: {new_emoji}{new_emoji}{new_emoji}{new_emoji}{new_emoji}", color=Color.GREEN))
 
-                # Delete poll data and image file
-                Data.delete_item(poll, table="emoji_polls")
+            # Delete poll data and image file
+            Data.delete_item(poll, table="emoji_polls")
 
     # Checks if emoji name meets discord requirements
     def check_emoji_name(self, name):
