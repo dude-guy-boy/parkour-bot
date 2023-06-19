@@ -93,7 +93,7 @@ class DiscordLogger:
             color=Color.RED
         )
 
-        embed.add_field(name="Details", value=f"Error occurred in slash command: ```{get_slash_command(error.ctx)}```")
+        embed.add_field(name="Details", value=f"Error occurred in slash command used by {error.ctx.author.mention}: ```{get_slash_command(error.ctx)}```")
 
         await logging_channel.send(embed=embed)
 
