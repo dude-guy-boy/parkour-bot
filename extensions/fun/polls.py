@@ -10,6 +10,7 @@ from interactions import (
     Extension,
     File,
     Guild,
+    Member,
     Role,
     SlashCommand,
     listen,
@@ -41,7 +42,6 @@ class Polls(Extension):
         self.emoji_add_poll_finish.start()
         self.emoji_remove_poll_finish.start()
 
-    # TODO: add polln't functionality
     # TODO: Add sticker-polls
 
     ### /EMOJI-POLL ###
@@ -60,6 +60,11 @@ class Polls(Extension):
     )
     async def emoji_poll_remove(self, ctx: SlashContext, emoji: str):
         await ctx.defer(ephemeral=True)
+
+        # Handle polln't
+        if self.check_pollnt(ctx.member):
+            await ctx.send(embeds=Embed(description=f"You aren't allowed to make polls because you have the polln't role.", color=Color.RED))
+            return
 
         input_emoji_list = [input_emoji['emoji'] for input_emoji in self.custom_emoji_list(emoji)]
         accessible_emojis, inaccessible_emojis = await self.check_accessible_emojis(ctx.guild, input_emoji_list)
@@ -146,6 +151,11 @@ class Polls(Extension):
     )
     async def emoji_poll_add(self, ctx: SlashContext, name: str, image: Attachment):
         await ctx.defer(ephemeral=True)
+
+        # Handle polln't
+        if self.check_pollnt(ctx.member):
+            await ctx.send(embeds=Embed(description=f"You aren't allowed to make polls because you have the polln't role.", color=Color.RED))
+            return
 
         # Get emoji numbers so it can be checked if limit is reached
         num_allowed_emojis = ctx.guild.emoji_limit
@@ -445,6 +455,11 @@ class Polls(Extension):
     )
     async def poll_command(self, ctx: SlashContext, question: str, emojis: str = None, image: Attachment = None, anonymous: bool = False, thread: bool = False):
         await ctx.defer(ephemeral=True)
+
+        # Handle polln't
+        if self.check_pollnt(ctx.member):
+            await ctx.send(embeds=Embed(description=f"You aren't allowed to make polls because you have the polln't role.", color=Color.RED))
+            return
         
         # Set default emojis if custom emojis werent specified
         if not emojis:
@@ -630,6 +645,16 @@ class Polls(Extension):
     # Checks if a question string contains any text
     def check_valid_question(self, question):
         return not re.match(r'^[_\W]+$', question)
+
+    # Handles responding to a user with the polln't role
+    def check_pollnt(self, member: Member):
+        pollnt_role_id = Config.get_config_parameter("pollnt_role_id")
+        member_role_ids = [str(role.id) for role in member.roles]
+
+        if pollnt_role_id in member_role_ids:
+            return True
+        
+        return False
 
     ### /CONFIG POLLS SET-CHANNEL ###
     @slash_command(
