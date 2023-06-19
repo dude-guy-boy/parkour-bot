@@ -179,6 +179,32 @@ class Minesweeper(Extension):
         
         await ctx.edit_origin(embeds=embed, components=buttons)
 
+    ### /LEADERBOARD GAME MINESWEEPER ###
+    @slash_command(
+        name="leaderboard",
+        description="base leaderboard command",
+        group_name="game",
+        group_description="game group command",
+        sub_cmd_name="minesweeper",
+        sub_cmd_description="View the minesweeper leaderboard!"
+    )
+    async def leaderboard(self, ctx: SlashContext):
+        data = UserData.get_all_items(table="leaderboard")
+        data = [{"user": f"<@{item['key']}>", "mines_avoided": item['value']['mines_avoided'], "most_mines": item['value']['most_mines']} for item in data]
+
+        # Create the leaderboard
+        lb = Leaderboard.create(
+            client=self.bot,
+            data=data,
+            field_map={"Leaderboard": "user", "Mines Avoided": "mines_avoided", "Top Mines": "most_mines"},
+            sort_by="mines_avoided",
+            secondary_sort_by="most_mines",
+            title="Minesweeper Leaderboard",
+            text=f"There are `{len(data)}` users who've avoided a total of `{sum([user['mines_avoided'] for user in data])}` mines!"
+        )
+
+        await lb.send(ctx)
+
     # Generate buttons for minsweeper board
     def generate_buttons(self, mine_array, revealed, is_disabled=False, game_over=False, won_game = False, exploded = None):
         buttons = []
