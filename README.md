@@ -141,6 +141,8 @@ Like Minesweeper, there is also a 2048 leaderboard which is ranked based on high
 ### **Polls**
 Through Parkour Bot users can create highly customisable polls, which are posted to #polls for everyone to see and answer if they please. Users can create anonymous polls, polls with images, polls with an attached thread and polls with custom emoji reactions.
 
+Emoji polls can also be created which allow users to suggest adding or removing custom emojis to the server. 24 Hours after an emoji poll is sent the bot will check the poll results (yes vs no votes) and add or remove or keep the emoji accordingly.
+
 ### **The Luck System**
 In the luck system any message can get lucky. All messages sent in the server have at least a 1/1000 chance of getting lucky, and are marked with reactions/responses when they do get lucky. The rarity of luck messages ranges in powers of 10 from one in a thousand to one in a billion.
 
