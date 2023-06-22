@@ -26,72 +26,48 @@ class Battleship(Extension):
         self.client = client
         self.logger = logs.init_logger()
 
-    @slash_command(
-        name="test",
-        description="desc"
-    )
-    async def test_func(self, ctx: SlashContext):
-        user = UserData.get_user(ctx.author.id)
-        thing = self.make_move(user['board'], user['ships'])
-
     ### /BATTLESHIP ###
     @slash_command(
         name="battleship",
         description="Play a game of battleship!",
     )
     async def play_battleship(self, ctx: SlashContext):
-        user = UserData.get_user(ctx.author.id)
+        game = BattleshipGame.get(ctx.author.id)
 
-        # If the user has an existing game, send it
-        if 'board' in user:
+        # # If the user has an existing game, send it
+        if game:
             embed = Embed(description=f"{ctx.user.mention} here's your existing Battleship game!", color=Color.GREEN)
 
             # Check if the game was started
-            if not self.game_begun(user['revealed'], user['bot_revealed']):
+            if not game.started:
                 embed.set_footer("Click on water to re-randomise, or on a ship to begin!")
 
             # Get and delete the old message
-            old_message_channel = await ctx.guild.fetch_channel(user['message']['channel_id'])
-            old_message = await old_message_channel.fetch_message(user['message']['message_id'])
+            old_message_channel = await ctx.guild.fetch_channel(game.message.channel)
+            old_message = await old_message_channel.fetch_message(game.message.id)
             await old_message.delete()
 
             # Send the new message with the old board
-            new_message = await ctx.send(embed=embed, components=self.generate_buttons(user['board'], user['revealed']))
+            new_message = await ctx.send(embed=embed, components=game.user.generate_buttons(started=game.started))
 
             # Save the new message
-            user['message'] = {"message_id": str(new_message.id), "channel_id": str(new_message.channel.id)}
-            UserData.set_user(ctx.author.id, user)
-            return
-        
-        if not user:
-            user = {}
+            game.set_message(new_message)
+            game.save()
 
-        # Generate new board
-        new_board = self.generate_random_board()
-        revealed = [[0] * 5 for _ in range(5)]
+            return
+
+        # Initialises a new battleship game
+        if not game:
+            game = BattleshipGame(ctx.author.id)
 
         # Send board
-        buttons = self.generate_buttons(new_board, revealed)
+        buttons = game.user.generate_buttons(started=False)
         embed = Embed(description=f"{ctx.user.mention} here's your Battleship board!", footer="Click on water to re-randomise, or on a ship to begin!", color=Color.GREEN)
         msg = await ctx.send(embeds=embed, components=buttons)
 
-        # Set started
-        user['started'] = False
-
-        # Save user and bot boards
-        user['board'] = new_board
-        user['bot'] = self.generate_random_board()
-
-        # Randomly decide if the user or the bot will start
-        user['turn'] = choice(("bot", "user"))
-
-        # Save user and bot revealed boards
-        user['revealed'] = revealed
-        user['bot_revealed'] = revealed
-
-        # Save message info
-        user['message'] = {"message_id": str(msg.id), "channel_id": str(msg.channel.id)}
-        UserData.set_user(ctx.author.id, user)
+        # Save game info
+        game.set_message(msg)
+        game.save()
 
     ### Battleship Button Listener ###
     @listen("on_component")
@@ -280,57 +256,8 @@ class Battleship(Extension):
     #     return ship_matrix[cell_coordinate[0]][cell_coordinate[1]]
 
     # Checks if a coordinate contains a ship
-    def check_ship(self, coord, board):
-        return board[coord[0]][coord[1]] in (Board.SMALL_SHIP, Board.MEDIUM_SHIP, Board.LARGE_SHIP)
-    
-    # Generate buttons for minsweeper board
-    def generate_buttons(self, user, disable_all = False):
-        buttons = []
-        started = ButtonStyle.GRAY if self.game_begun(board, revealed) else ButtonStyle.GREEN
-
-        for i in range(5):
-            row = []
-            for j in range(5):
-                cell = board[i][j]
-                revealed_cell = revealed[i][j]
-
-                if cell == Board.SMALL_SHIP:
-                    row.append(Button(style=started, emoji="⛵", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if cell == Board.MEDIUM_SHIP:
-                    row.append(Button(style=started, emoji="🚢", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if cell == Board.LARGE_SHIP:
-                    row.append(Button(style=started, emoji="🛳️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Revealed.MISS:
-                    row.append(Button(style=ButtonStyle.BLUE, emoji="💦", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Revealed.HIT:
-                    row.append(Button(style=ButtonStyle.RED, emoji="🔥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Revealed.FRESH_HIT:
-                    row.append(Button(style=ButtonStyle.RED, emoji="💥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Revealed.SUNKEN_SHIP:
-                    row.append(Button(style=ButtonStyle.RED, emoji="☠️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if randint(1, 6) == 1:
-                    row.append(Button(style=ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                row.append(Button(style=ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-
-            buttons.append(row)
-
-        return buttons
+    # def check_ship(self, coord, board):
+    #     return board[coord[0]][coord[1]] in (Board.SMALL_SHIP, Board.MEDIUM_SHIP, Board.LARGE_SHIP)
 
     # # Based on the cell location returns the offsets from it that within the board
     # def compute_checkable_offsets(self, cell_coordinate):
@@ -375,18 +302,160 @@ class Battleship(Extension):
         
     #     return offsets
 
-class BattleshipPlayer:
-    def __init__(self) -> None:
-        self.board = self.generate_random_board()
-        self.bot_board = self.generate_random_board()
-        self.started = False
-        self.turn = choice("bot", "user")
-        self.revealed = self.empty_board()
-        self.bot_revealed = self.empty_board()
-        self.message = None
+class BattleshipMessage:
+    def __init__(self, message_id, channel_id) -> None:
+        self.id = message_id
+        self.channel = channel_id
 
+class BattleshipGame:
+    USER = 0
+    BOT = 1
+
+    def __init__(self, id, user = None, bot = None, started = None, is_bots_turn = None, message: BattleshipMessage = None) -> None:
+        self.id = str(id)
+        self.user = user if user else Board()
+        self.bot = bot if bot else Board()
+        self.started = started if started in (False, True) else False
+        self.is_bots_turn = is_bots_turn if is_bots_turn in (False, True) else choice([True, False])
+        self.message = message if message else None
+
+    @classmethod
+    # Gets a user by id
+    def get(self, id):
+        game = UserData.get_user(str(id))
+
+        if not game:
+            return None
+
+        return BattleshipGame(
+            id = str(id),
+            user = Board(board = game['user']['board'], revealed = game['user']['revealed']),
+            bot = Board(board = game['bot']['board'], revealed = game['bot']['revealed']),
+            started = game['started'],
+            is_bots_turn = game['is_bots_turn'],
+            message = BattleshipMessage(game['message']['message_id'], game['message']['channel_id'])
+        )
+
+    # Saves user data
+    def save(self):
+        if not self.message:
+            raise(LookupError, "Battleship message was not set!")
+
+        game = {
+            "user": {
+                "board": self.user.board,
+                "revealed": self.user.revealed
+            },
+            "bot": {
+                "board": self.bot.board,
+                "revealed": self.bot.revealed
+            },
+            "started": self.started,
+            "is_bots_turn": self.is_bots_turn,
+            "message": {
+                "message_id": str(self.message.id),
+                "channel_id": str(self.message.channel)
+            }
+        }
+        
+        UserData.set_user(self.id, game)
+
+    # Sets the board
+    def set_board(self, board):
+        self.user.board = board
+
+    # Sets the bots board
+    def set_bot_board(self, bot_board):
+        self.bot.board = bot_board
+
+    # Sets the started value
+    def set_started(self, started: bool):
+        self.started = started
+
+    # Sets whos turn it is
+    def set_turn(self, is_bots_turn: bool):
+        self.is_bots_turn = is_bots_turn
+
+    # Sets the revealed board
+    def set_revealed(self, revealed):
+        self.user.revealed = revealed
+
+    # Sets the bots revealed board
+    def set_bot_revealed(self, bot_revealed):
+        self.bot.revealed = bot_revealed
+
+    # Sets the battleship message
+    def set_message(self, message: Message):
+        self.message = BattleshipMessage(message_id=str(message.id), channel_id=str(message.channel.id))
+
+class Board:
+    WATER = 0
+    SMALL_SHIP = 1
+    MEDIUM_SHIP = 2
+    LARGE_SHIP = 3
+
+    NOTHING = 0
+    MISS = 1
+    HIT = 2
+    FRESH_HIT = 3
+    SUNKEN_SHIP = 4
+
+    def __init__(self, board = None, revealed = None) -> None:
+        self.board = board if board else self.generate_random_board()
+        self.revealed = revealed if revealed else self.empty_board()
+
+    # Returns an empty 5x5 board
     def empty_board(self):
         return [[0] * 5 for _ in range(5)]
+
+    # Generate buttons for minsweeper board
+    def generate_buttons(self, started: bool = True, disable_all = False):
+        buttons = []
+        ship_colour = ButtonStyle.GRAY if started else ButtonStyle.GREEN
+
+        for i in range(5):
+            row = []
+            for j in range(5):
+                cell = self.board[i][j]
+                revealed_cell = self.revealed[i][j]
+
+                if cell == Board.SMALL_SHIP:
+                    row.append(Button(style=ship_colour, emoji="⛵", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if cell == Board.MEDIUM_SHIP:
+                    row.append(Button(style=ship_colour, emoji="🚢", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if cell == Board.LARGE_SHIP:
+                    row.append(Button(style=ship_colour, emoji="🛳️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if revealed_cell == Board.MISS:
+                    row.append(Button(style=ButtonStyle.BLUE, emoji="💦", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if revealed_cell == Board.HIT:
+                    row.append(Button(style=ButtonStyle.RED, emoji="🔥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if revealed_cell == Board.FRESH_HIT:
+                    row.append(Button(style=ButtonStyle.RED, emoji="💥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if revealed_cell == Board.SUNKEN_SHIP:
+                    row.append(Button(style=ButtonStyle.RED, emoji="☠️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                if randint(1, 6) == 1:
+                    row.append(Button(style=ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    continue
+
+                row.append(Button(style=ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+
+            buttons.append(row)
+
+        return buttons
 
     # Generates a board with random ship layout
     def generate_random_board(self):
@@ -442,19 +511,6 @@ class BattleshipPlayer:
                     return False
 
         return True
-
-class Board:
-    WATER = 0
-    SMALL_SHIP = 1
-    MEDIUM_SHIP = 2
-    LARGE_SHIP = 3
-
-class Revealed:
-    NO = 0
-    MISS = 1
-    HIT = 2
-    FRESH_HIT = 3
-    SUNKEN_SHIP = 4
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
