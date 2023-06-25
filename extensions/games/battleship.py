@@ -36,6 +36,7 @@ class Battleship(Extension):
 
         # # If the user has an existing game, send it
         if game:
+            # TODO: Retain the last embed message when its resent
             embed = Embed(description=f"{ctx.user.mention} here's your existing Battleship game!", color=Color.GREEN)
 
             # Check if the game was started
@@ -48,7 +49,7 @@ class Battleship(Extension):
             await old_message.delete()
 
             # Send the new message with the old board
-            new_message = await ctx.send(embed=embed, components=game.user.generate_buttons(started=game.started))
+            new_message = await ctx.send(embed=old_message.embeds[0], components=game.user.generate_buttons(started=game.started))
 
             # Save the new message
             game.set_message(new_message)
@@ -79,14 +80,14 @@ class Battleship(Extension):
         ctx = component.ctx
         custom_id = ctx.custom_id
 
-        # Get battleship user
-        user = UserData.get_user(ctx.author.id)
+        # Get battleship game
+        game = BattleshipGame.get(ctx.author.id)
 
         # Check if button presser is the game owner
-        if not user or user["message"]['message_id'] != str(ctx.message.id):
+        if not game or game.message.id != str(ctx.message.id):
             await ctx.send(embeds=Embed(description="That isn't your battleship game!", color=Color.RED), ephemeral=True)
             
-            if not user:
+            if not game:
                 UserData.delete_user(ctx.author.id)
             return
 
@@ -94,213 +95,97 @@ class Battleship(Extension):
         coord = (int(custom_id[11:12]), int(custom_id[12:]))
 
         # Check if the game has started
-        if not self.game_begun(user['revealed'], user['bot_revealed']):
-            # Check if they clicked a ship
-            if self.check_ship(coord, user['board']):
+        if not game.started:
+            # If a ship was clicked, start the game
+            if game.user.is_ship(coord):
+                # Set started flag
+                game.set_started(True)
 
                 # If the bot should start
-                if user['turn'] == "bot":
-                    # Disable buttons and say that pk bot is making the first move
-                    disabled_message: Message = await ctx.edit_origin(
+                if game.is_bots_turn:
+                    # Say that pk bot is making the first move
+                    starting_message: Message = await ctx.edit_origin(
                         embed=Embed(description=f"The game has now begun. {self.bot.user.mention} will make the first move.", color=Color.YORANGE),
-                        components=self.generate_buttons(user['board'], user['revealed'], disable_all=True)
+                        components=game.user.generate_buttons(bots_turn=True, started=game.started)
                     )
 
                     # Wait a second to appear like its thinking
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
 
                     # Make the move
+                    valid_moves = game.user.get_all_valid_coords()
+                    print(valid_moves)
+                    move = choice(valid_moves)
+                    print(move)
 
-                    # Prompt player to click anywhere when they are ready to make their move
+                    result = game.user.reveal(move)
+                    buttons = game.user.generate_buttons(bots_turn=True, started=game.started)
+                    await starting_message.edit(embeds=Embed(description=f"{game.get_move_string(result, coord, self.bot.user.mention)}", footer="Click anywhere to continue"), components=buttons)
 
-                    # updated_board = self.make_move(user['board'])
-
-                    # TODO: Calculate result of pk bots move
-                    # await disabled_message.edit(embed=Embed(description=f"piss"))
+                    game.set_turn(is_bots_turn=False)
+                    game.save()
                     return
 
-                # The user should syart
-                await ctx.edit_origin(embed=Embed(description=f"The game has now begun. Please make the first move.", color=Color.GREEN))
+                # The user should start
+                
+                buttons = game.user.generate_buttons(bots_turn=False, started=game.started)
+                game.save()
+
+                await ctx.edit_origin(embed=Embed(description=f"The game has now begun. Please make the first move.", color=Color.GREEN), components=buttons)
+
                 return
             
             # If they clicked water, regenerate their board
-            user['board'] = self.generate_random_board()
-            UserData.set_user(ctx.author.id, user)
+            game.regenerate_board()
+            game.save()
 
             # Send regenerated board
-            buttons = self.generate_buttons(user['board'], user['revealed'])
-            await ctx.edit_origin(components=buttons)
+            await ctx.edit_origin(components=game.user.generate_buttons(started=game.started))
             return
 
         # Check if its the users turn
-        if user['turn'] == "bot":
-            await ctx.send(embeds=Embed(description="It's not your turn!", color=Color.RED), ephemeral=True)
+        if game.is_bots_turn:
+            # User clicked because prompt "Click anywhere to continue"
+            # Say that pk bot is making its move
+            game_message: Message = await ctx.edit_origin(
+                embed=Embed(description=f"{self.bot.user.mention} is making their move.", color=Color.YORANGE),
+                components=game.user.generate_buttons(bots_turn=True, started=game.started)
+            )
+
+            # Wait a second to appear like its thinking
+            await asyncio.sleep(2)
+
+            # Make the move
+            valid_moves = game.user.get_all_valid_coords()
+            print(valid_moves)
+            move = choice(valid_moves)
+            print(move)
+
+            result = game.user.reveal(move)
+            buttons = game.user.generate_buttons(bots_turn=True, started=game.started, latest_move=move)
+            await game_message.edit(embeds=Embed(description=f"{game.get_move_string(result, coord, self.bot.user.mention)}", footer="Click anywhere to continue"), components=buttons)
+
+            game.set_turn(is_bots_turn=False)
+            game.save()
+            return
+        
+        # Its the users turn
+
+        # Check if they are "clicking to continue"
+
+        if "footer" in ctx.message.embeds[0].__dict__ and "anywhere to continue" in ctx.message.embeds[0].footer.text:
+            buttons = game.bot.generate_buttons(bots_turn=False, started=game.started)
+            await ctx.edit_origin(embeds=Embed(description=f"Make your move!"), components=buttons)
             return
 
-    # Makes a move
-    # def make_move(self, board, ship_positions):
-    #     # TODO: Make move
-    #     # Get all coordinates for all valid positions
-    #     valid_coords = self.get_all_valid_coords(board, ship_positions)
+        # Reveal cell that they pressed
+        result = game.bot.reveal(coord)
+        buttons = game.bot.generate_buttons(bots_turn=False, started=game.started, latest_move=coord)
+        await ctx.edit_origin(embeds=Embed(description=f"{game.get_move_string(result, coord, self.bot.user.mention)}\nClick anywhere to continue"), components=buttons)
 
-    #     # If there are no hits choose a random valid coord
-    #     if not any(6 in sublist or 7 in sublist for sublist in board):
-    #         return choice(valid_coords)
-
-    #     # If there is a hit that hasnt sunk a ship, choose a valid adjacent spot
-    #     all_hits = self.get_all_hits(board, ship_positions)
-    #     decision = choice(all_hits)
-    #     offset_coords = []
-        
-    #     for offset in self.compute_checkable_offsets(decision):
-    #         offset_coords.append((decision[0] + offset[0], decision[1] + offset[1]))
-
-    #     valid_coords = list(set(valid_coords) & set(offset_coords))
-    #     print(valid_coords)
-    #     decision = choice(valid_coords)
-    #     print(decision)
-
-    #     # Get resulting board
-    #     if board[decision[0]][decision[1]] == Cell.WATER:
-    #         board[decision[0]][decision[1]] = Cell.MISS
-
-    #     if self.check_ship(decision, board):
-    #         board[decision[0]][decision[1]] = Cell.FRESH_HIT
-
-    #     return board
-
-    # # Gets a list of all hits that havent sunk a ship
-    # def get_all_hits(self, board, ship_positions):
-    #     all_hits = []
-
-    #     for i in range(5):
-    #         for j in range(5):
-    #             if board[i][j] in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP) and not self.check_destroyed_ship(board, ship_positions, (i, j)):
-    #                 all_hits.append((i, j))
-
-    #     return all_hits
-
-    # # Gets a list of all valid coords that a move could be made based on the board and ship positions
-    # def get_all_valid_coords(self, board, ship_positions):
-    #     valid_coords = []
-    #     for i in range(5):
-    #         for j in range(5):
-    #             # Check if cell is a hit or a miss already
-    #             if board[i][j] in (Cell.HIT, Cell.MISS, Cell.FRESH_HIT):
-    #                 continue
-
-    #             # Check if cell is adjacent to a destroyed ship
-    #             if self.adjacent_to_destroyed_ship(board, ship_positions, (i, j)):
-    #                 continue
-
-    #             valid_coords.append((i, j))
-
-    #     return valid_coords
-
-    # # Checks if a given cell is adjacent to a ship that has been destroyed
-    # def adjacent_to_destroyed_ship(self, board, ship_positions, cell_coordinate):
-    #     offsets = self.compute_checkable_offsets(cell_coordinate)
-
-    #     for offset in offsets:
-    #         offset_coord = (cell_coordinate[0]+offset[0], cell_coordinate[1]+offset[1])
-    #         destroyed_ship = self.check_destroyed_ship(board, ship_positions, offset_coord)
-            
-    #         if destroyed_ship != 0:
-    #             return True
-
-    #     return False
-
-    # # Checks if a cell is part of a destroyed ship
-    # def check_destroyed_ship(self, board, ship_positions, cell_coordinate):
-    #     # Not a destroyed ship if the checked cell isn't a hit
-    #     if not self.get_cell(board, cell_coordinate) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP):
-    #         return 0
-        
-    #     # Check if 1 long
-    #     if list(cell_coordinate) == ship_positions["1"][0]:
-    #         return Cell.SMALL_SHIP
-        
-    #     # Check if its 2 long
-    #     if list(cell_coordinate) in ship_positions["2"]:
-    #         if self.get_cell(board, ship_positions["2"][0]) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP) and self.get_cell(board, ship_positions["2"][1]) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP):
-    #             return Cell.MEDIUM_SHIP
-            
-    #     # Check if its 3 long
-    #     if list(cell_coordinate) in ship_positions["3"]:
-    #         if self.get_cell(board, ship_positions["3"][0]) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP) and self.get_cell(board, ship_positions["3"][1]) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP) and self.get_cell(board, ship_positions["3"][2]) in (Cell.HIT, Cell.FRESH_HIT, Cell.SUNKEN_SHIP):
-    #             return Cell.LARGE_SHIP
-            
-    #     return 0
-
-    # # Gets a dict of ship positions
-    # def get_ship_positions(self, ship_matrix):
-    #     ship_positions = {1: [], 2: [], 3: []}
-    #     for i in range(5):
-    #         for j in range(5):
-    #             if self.get_cell(ship_matrix, coord := (i, j)) == Cell.SMALL_SHIP:
-    #                 ship_positions[1].append(coord)
-    #                 continue
-
-    #             if self.get_cell(ship_matrix, coord := (i, j)) == Cell.MEDIUM_SHIP:
-    #                 ship_positions[2].append(coord)
-    #                 continue
-
-    #             if self.get_cell(ship_matrix, coord := (i, j)) == Cell.LARGE_SHIP:
-    #                 ship_positions[3].append(coord)
-    #                 continue
-
-    #     return ship_positions
-
-    # # Gets the value of a cell
-    # def get_cell(self, ship_matrix, cell_coordinate):
-    #     return ship_matrix[cell_coordinate[0]][cell_coordinate[1]]
-
-    # Checks if a coordinate contains a ship
-    # def check_ship(self, coord, board):
-    #     return board[coord[0]][coord[1]] in (Board.SMALL_SHIP, Board.MEDIUM_SHIP, Board.LARGE_SHIP)
-
-    # # Based on the cell location returns the offsets from it that within the board
-    # def compute_checkable_offsets(self, cell_coordinate):
-    #     offsets = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-
-    #     # Remove impossible offsets
-    #     if cell_coordinate[0] == 0:
-    #         # Cant check cells above
-    #         remove_offsets = [(-1, -1), (-1, 0), (-1, 1)]
-    #         for offset in remove_offsets:
-    #             try:
-    #                 offsets.remove(offset)
-    #             except:
-    #                 pass
-
-    #     if cell_coordinate[0] == 4:
-    #         # Cant check cells below
-    #         remove_offsets = [(1, -1), (1, 0), (1, 1)]
-    #         for offset in remove_offsets:
-    #             try:
-    #                 offsets.remove(offset)
-    #             except:
-    #                 pass
-
-    #     if cell_coordinate[1] == 0:
-    #         # Cant check cells to the left
-    #         remove_offsets = [(-1, -1), (0, -1), (1, -1)]
-    #         for offset in remove_offsets:
-    #             try:
-    #                 offsets.remove(offset)
-    #             except:
-    #                 pass
-
-    #     if cell_coordinate[1] == 4:
-    #         # Cant check cells to the right
-    #         remove_offsets = [(-1, 1), (0, 1), (1, 1)]
-    #         for offset in remove_offsets:
-    #             try:
-    #                 offsets.remove(offset)
-    #             except:
-    #                 pass
-        
-    #     return offsets
+        game.set_turn(is_bots_turn=True)
+        game.bot.cycle_hits()
+        game.save()
 
 class BattleshipMessage:
     def __init__(self, message_id, channel_id) -> None:
@@ -335,6 +220,45 @@ class BattleshipGame:
             is_bots_turn = game['is_bots_turn'],
             message = BattleshipMessage(game['message']['message_id'], game['message']['channel_id'])
         )
+
+    # Gets the result of a move as a string
+    def get_move_string(self, result, coord, bot_mention):
+        who_did = bot_mention if self.is_bots_turn else "You"
+        who_against = "your" if self.is_bots_turn else f"{bot_mention}'s"
+
+        if result == Board.MISS:
+            return f"{who_did} missed!"
+        
+        target_board = self.user if self.is_bots_turn else self.bot
+        target_cell = Board.get(target_board, coord)
+        ship_name = self.get_ship_name(target_cell)
+        print(target_cell)
+        print(ship_name)
+
+        if result in (Board.HIT, Board.FRESH_HIT):
+            return f"{who_did} hit {who_against} {ship_name} battleship!"
+        
+        if result == Board.SUNKEN_SHIP:
+            return f"{who_did} sank {who_against} {ship_name} battleship!"
+        
+        return "???"
+
+    # Returns ship name from input of its number
+    def get_ship_name(self, ship):
+        if ship == Board.SMALL_SHIP:
+            return "small"
+        
+        if ship == Board.MEDIUM_SHIP:
+            return "medium"
+        
+        if ship == Board.LARGE_SHIP:
+            return "large"
+        
+        return "non-existant"
+
+    # Resets the board
+    def regenerate_board(self):
+        self.user = Board()
 
     # Saves user data
     def save(self):
@@ -395,65 +319,208 @@ class Board:
     LARGE_SHIP = 3
 
     NOTHING = 0
-    MISS = 1
-    HIT = 2
-    FRESH_HIT = 3
-    SUNKEN_SHIP = 4
+    MISS = 5
+    HIT = 6
+    FRESH_HIT = 7
+    SUNKEN_SHIP = 8
 
     def __init__(self, board = None, revealed = None) -> None:
         self.board = board if board else self.generate_random_board()
         self.revealed = revealed if revealed else self.empty_board()
 
+    # Gets a list of all valid coordinates
+    def get_all_valid_coords(self):
+        valid_coords = []
+        for row in range(5):
+            for col in range(5):
+                if not self.is_revealed((row, col)):
+                    valid_coords.append((row, col))
+
+        return valid_coords
+
+    # Reveals a cell
+    def reveal(self, coord: tuple):
+        # If the cell is a ship and has not been sunk mark it as a fresh hit
+
+        # If a ship was hit
+        if self.is_ship(coord):
+            # Get ship type
+            ship_type = self.get(coord)
+
+            # Check if ship has been sunk
+            ship_coordinates = self.get_ship_coordinates(ship_type)
+
+            for coordinate in ship_coordinates:
+                if coordinate == coord:
+                    continue
+
+                if not self.is_revealed(coordinate):
+                    # Ship has not been sunk
+                    self.revealed[coord[0]][coord[1]] = Board.FRESH_HIT
+                    return Board.FRESH_HIT
+
+            # Ship has been sunk
+            for coordinate in ship_coordinates:
+                self.revealed[coordinate[0]][coordinate[1]] = Board.SUNKEN_SHIP
+            return Board.SUNKEN_SHIP
+        
+        self.revealed[coord[0]][coord[1]] = Board.MISS
+        return Board.MISS
+
+    # Changes all fresh hits into hits
+    def cycle_hits(self):
+        for row in range(5):
+            for col in range(5):
+                if self.revealed[row][col] == Board.FRESH_HIT:
+                    self.revealed[row][col] = Board.HIT
+
+    # Gets the contents of a cell
+    def get(self, coord):
+        return self.board[coord[0]][coord[1]]
+
+    # Gets all coordinates of a ship
+    def get_ship_coordinates(self, ship_type):
+        coordinates = []
+        for row in range(5):
+            for col in range(5):
+                if self.board[row][col] == ship_type:
+                    coordinates.append((row, col))
+
+        return coordinates
+
+    # Checks if a cell has been revealed
+    def is_revealed(self, coord: tuple):
+        return self.revealed[coord[0]][coord[1]] != Board.NOTHING
+
+    # Checks if the clicked cell is a ship
+    def is_ship(self, coord: tuple):
+        if self.board[coord[0]][coord[1]] in (Board.SMALL_SHIP, Board.MEDIUM_SHIP, Board.LARGE_SHIP):
+            return True
+        
+        return False
+
     # Returns an empty 5x5 board
     def empty_board(self):
         return [[0] * 5 for _ in range(5)]
 
+    # Reveals all cells adjacent to destroyed ships
+    def reveal_adjacent_cells(self):
+        for row in range(5):
+            for col in range(5):
+                if self.check_adjacent_to_destroyed_ship((row, col)):
+                    self.reveal((row, col))
+
+    # Checks if the cell is adjacent to a destroyed ship
+    def check_adjacent_to_destroyed_ship(self, coord):
+        row, col = coord
+        offsets = [(-1, -1), (-1, 0), (-1, 1),
+                (0, -1),           (0, 1),
+                (1, -1), (1, 0), (1, 1)]
+
+        for offset in offsets:
+            new_row = row + offset[0]
+            new_col = col + offset[1]
+            if 0 <= new_row < 5 and 0 <= new_col < 5:
+                if self.revealed[new_row][new_col] == Board.SUNKEN_SHIP:
+                    return True
+        
+        return False
+
+    # Returns the needed board
+    def compose_board(self, bots_turn, started):
+        if not started:
+            # Return starting board type
+            return self.board
+
+        if bots_turn:
+            # - Display user board
+            # - Hits, misses and sunken ships should be displayed
+            # TODO: this
+
+            combined_boards = [[0] * 5 for _ in range(5)]  # Initialize a new 5x5 matrix with zeros
+
+            for i in range(5):
+                for j in range(5):
+                    if self.revealed[i][j] != 0:  # Check if the value in matrix2 is non-zero
+                        combined_boards[i][j] = self.revealed[i][j]
+                    else:
+                        combined_boards[i][j] = self.board[i][j]
+
+            return combined_boards
+
+        # It's the users turn
+        # TODO: this
+        return self.revealed
+
     # Generate buttons for minsweeper board
-    def generate_buttons(self, started: bool = True, disable_all = False):
+    def generate_buttons(self, bots_turn: bool = True, started: bool = True, latest_move: tuple = None):
         buttons = []
+
+        # Reveal adjacent cells before generating buttons
+        self.reveal_adjacent_cells()
+
+        # Uses the bots revealed board if the users turn
+        board = self.compose_board(bots_turn, started)
+        print(board)
+        
+        # Set ship colour (green if game not started yet)
         ship_colour = ButtonStyle.GRAY if started else ButtonStyle.GREEN
 
-        for i in range(5):
-            row = []
-            for j in range(5):
-                cell = self.board[i][j]
-                revealed_cell = self.revealed[i][j]
+        # Loop through all cells
+        for row in range(5):
+            row_buttons = []
+            for col in range(5):
+                # Get the cell from the correct board
+                cell = board[row][col]
+                latest_move = ButtonStyle.GREEN if (row, col) == latest_move else None
 
+                # Set if button is disabled - True if users turn and cell has been revealed
+                disabled = not bots_turn and self.is_revealed((row, col))
+
+                # Miss
+                # TODO: figure out how misses should be handled
+                if cell == Board.MISS:
+                    row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.GRAY, label="‎", custom_id=f"battleship_{row}{col}", disabled=True))
+                    continue
+
+                # Hit
+                if cell == Board.HIT:
+                    row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.GRAY, emoji="🔥", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    continue
+
+                # Fresh hit
+                if cell == Board.FRESH_HIT:
+                    row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.RED, emoji="💥", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    continue
+
+                # Sunken ship
+                if cell == Board.SUNKEN_SHIP:
+                    row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.RED, emoji="☠️", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    continue
+
+                # Small ship
                 if cell == Board.SMALL_SHIP:
-                    row.append(Button(style=ship_colour, emoji="⛵", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    row_buttons.append(Button(style=latest_move if latest_move else ship_colour, emoji="⛵", custom_id=f"battleship_{row}{col}", disabled=disabled))
                     continue
 
+                # Medium ship
                 if cell == Board.MEDIUM_SHIP:
-                    row.append(Button(style=ship_colour, emoji="🚢", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    row_buttons.append(Button(style=latest_move if latest_move else ship_colour, emoji="🚢", custom_id=f"battleship_{row}{col}", disabled=disabled))
                     continue
 
+                # Large ship
                 if cell == Board.LARGE_SHIP:
-                    row.append(Button(style=ship_colour, emoji="🛳️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    row_buttons.append(Button(style=latest_move if latest_move else ship_colour, emoji="🛳️", custom_id=f"battleship_{row}{col}", disabled=disabled))
                     continue
 
-                if revealed_cell == Board.MISS:
-                    row.append(Button(style=ButtonStyle.BLUE, emoji="💦", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Board.HIT:
-                    row.append(Button(style=ButtonStyle.RED, emoji="🔥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Board.FRESH_HIT:
-                    row.append(Button(style=ButtonStyle.RED, emoji="💥", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
-                if revealed_cell == Board.SUNKEN_SHIP:
-                    row.append(Button(style=ButtonStyle.RED, emoji="☠️", custom_id=f"battleship_{i}{j}", disabled=disable_all))
-                    continue
-
+                # Water
                 if randint(1, 6) == 1:
-                    row.append(Button(style=ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                    row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=f"battleship_{row}{col}", disabled=disabled))
                     continue
 
-                row.append(Button(style=ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{i}{j}", disabled=disable_all))
+                row_buttons.append(Button(style=latest_move if latest_move else ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{row}{col}", disabled=disabled))
 
-            buttons.append(row)
+            buttons.append(row_buttons)
 
         return buttons
 
@@ -511,6 +578,49 @@ class Board:
                     return False
 
         return True
+
+    # Based on the cell location returns the offsets from it that within the board
+    def compute_checkable_offsets(self, cell_coordinate):
+        offsets = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+        # Remove impossible offsets
+        if cell_coordinate[0] == 0:
+            # Cant check cells above
+            remove_offsets = [(-1, -1), (-1, 0), (-1, 1)]
+            for offset in remove_offsets:
+                try:
+                    offsets.remove(offset)
+                except:
+                    pass
+
+        if cell_coordinate[0] == 4:
+            # Cant check cells below
+            remove_offsets = [(1, -1), (1, 0), (1, 1)]
+            for offset in remove_offsets:
+                try:
+                    offsets.remove(offset)
+                except:
+                    pass
+
+        if cell_coordinate[1] == 0:
+            # Cant check cells to the left
+            remove_offsets = [(-1, -1), (0, -1), (1, -1)]
+            for offset in remove_offsets:
+                try:
+                    offsets.remove(offset)
+                except:
+                    pass
+
+        if cell_coordinate[1] == 4:
+            # Cant check cells to the right
+            remove_offsets = [(-1, 1), (0, 1), (1, 1)]
+            for offset in remove_offsets:
+                try:
+                    offsets.remove(offset)
+                except:
+                    pass
+        
+        return offsets
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
