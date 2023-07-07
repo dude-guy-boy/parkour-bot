@@ -77,12 +77,21 @@ class Battleship(Extension):
         # Get battleship game
         game = BattleshipGame.get(ctx.author.id)
 
+        if custom_id.endswith("end"):
+            await self.play_battleship(ctx)
+            return
+
         # Check if button presser is the game owner
         if not game or game.message.id != str(ctx.message.id):
             await ctx.send(embeds=Embed(description="That isn't your battleship game!", color=Color.RED), ephemeral=True)
             
             if not game:
                 UserData.delete_user(ctx.author.id)
+            return
+        
+        # Check if it is not the button pressers turn
+        if game.next_move == "bot" and game.started:
+            await ctx.send(embeds=Embed(description=f"Please wait for {ctx.bot.user.mention} to finish their turn.", color=Color.RED), ephemeral=True)
             return
 
         # Get coordinate of button pressed
@@ -94,13 +103,15 @@ class Battleship(Extension):
 
         if game.next_move.startswith("click"):
             await game.handle_continue(coord, ctx)
+            return
 
         if game.next_move == "bot":
-            await game.handle_bot_move(coord, ctx)
+            await game.handle_bot_move(ctx)
+            return
 
         if game.next_move == "user":
             await game.handle_player_move(coord, ctx)
-
+            return
 
 class BattleshipMessage:
     def __init__(self, message_id, channel_id) -> None:
@@ -138,15 +149,41 @@ class BattleshipGame:
 
     async def user_wins(self, ctx: ComponentContext):
         # Get buttons and send winning message
-        buttons = self.bot.generate_buttons(bots_turn=False, win=True)
+        buttons = self.bot.generate_buttons(bots_turn=False, end=True)
         await ctx.edit_origin(embed=Embed(title="👑 You win!! 👑", description=f"You destroyed all of {ctx.bot.user.mention}'s battleships!", footer="Click anywhere to play again!", color=Color.GREEN), components=buttons)
 
-        # Remove game from database
-
         # Add stats to leaderboard
+        user = UserData.get_user(ctx.author.id, table="leaderboard")
+        if not user:
+            user = {'wins': 1, 'losses': 0, 'win_streak': 1, 'longest_streak': 1}
+        else:
+            user['wins'] += 1
+            user['win_streak'] += 1
+            if user['win_streak'] > user['longest_streak']:
+                user['longest_streak'] = user['win_streak']
+
+        UserData.set_user(ctx.author.id, user, table="leaderboard")
+
+        # Remove game from database
+        UserData.delete_user(ctx.author.id)
 
     async def user_loses(self, ctx: ComponentContext):
-        pass
+        # Get buttons and send winning message
+        buttons = self.bot.generate_buttons(bots_turn=True, end=True)
+        await ctx.message.edit(embed=Embed(title="😭 You lose 😭", description=f"{ctx.bot.user.mention} destroyed all of your battleships.", footer="Click anywhere to play again!", color=Color.RED), components=buttons)
+
+        # Add stats to leaderboard
+        user = UserData.get_user(ctx.author.id, table="leaderboard")
+        if not user:
+            user = {'wins': 0, 'losses': 1, 'win_streak': 0, 'longest_streak': 0}
+        else:
+            user['losses'] += 1
+            user['win_streak'] = 0
+
+        UserData.set_user(ctx.author.id, user, table="leaderboard")
+
+        # Remove game from database
+        UserData.delete_user(ctx.author.id)
 
     # Handles clicks before the game starts
     async def handle_start(self, coord: tuple, ctx: ComponentContext):
@@ -190,10 +227,24 @@ class BattleshipGame:
 
         await self.handle_player_move(coord, ctx)
 
+    def narrow_bot_moves(self, valid_moves):
+        # TODO: Narrow down the moves based on hits
+
+        # If there is a hit ship that hasnt been sunk
+        # next move should be in the same row or column in a cell adjacent to the hit
+
+        # If there are multiple hits on the same ship
+        # next move should be in the row or column aligned with the ships orientation, adjacent to a hit
+
+        return valid_moves
+
     # Handles the bots move
     async def handle_bot_move(self, ctx: ComponentContext, is_first: bool = False):
         result = Board.FRESH_HIT
         is_move_message = False
+
+        self.next_move = "bot"
+        self.save()
 
         # Say that pk bot is moving
         embed = Embed(description=f"The game has now begun. {ctx.bot.user.mention} will make the first move.", color=Color.YORANGE) if is_first else Embed(description=f"{ctx.bot.user.mention} is making their move", color=Color.YORANGE)
@@ -209,7 +260,7 @@ class BattleshipGame:
 
             # Make the move
             valid_moves = self.user.get_all_valid_coords()
-            # TODO: Make it not completely random
+            valid_moves = self.narrow_bot_moves(valid_moves)
             move = choice(valid_moves)
 
             # Send the move
@@ -227,7 +278,6 @@ class BattleshipGame:
             self.save()
 
             if self.check_win(self.user.board, self.user.revealed):
-                # TODO: Add win/lose stuff
                 await self.user_loses(ctx)
                 return
 
@@ -493,6 +543,7 @@ class Board:
 
     # Returns the needed board
     def compose_board(self, bots_turn, started):
+        print(bots_turn)
         if not started:
             # Return starting board type
             return self.board
@@ -515,7 +566,7 @@ class Board:
         return self.revealed
 
     # Generate buttons for minsweeper board
-    def generate_buttons(self, bots_turn: bool = True, started: bool = True, latest_move: tuple = (), win: bool = False):
+    def generate_buttons(self, bots_turn: bool = True, started: bool = True, latest_move: tuple = (), end: bool = False):
         buttons = []
 
         # Reveal adjacent cells before generating buttons
@@ -523,8 +574,6 @@ class Board:
 
         # Gets the correct board
         board = self.compose_board(bots_turn, started)
-
-        # TODO: Add winning board and losing board button generation
         
         # Set ship colour (green if game not started yet)
         ship_colour = ButtonStyle.GRAY if started else ButtonStyle.GREEN
@@ -539,54 +588,55 @@ class Board:
                 override = (row, col) == latest_move
 
                 # Set if button is disabled - True if users turn and cell has been revealed
-                disabled = not bots_turn and self.is_revealed((row, col))
+                disabled = False if end else not bots_turn and self.is_revealed((row, col))
+                custom_id = f"battleship_{row}{col}_end" if end else f"battleship_{row}{col}"
 
                 # Hit
                 if cell == Board.HIT:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="🔥", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="🔥", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Fresh hit
                 if cell == Board.FRESH_HIT:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="💥", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="💥", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Sunken ship
                 if cell == Board.SUNKEN_SHIP:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="☠️", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.RED, emoji="☠️", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Small ship
                 if cell == Board.SMALL_SHIP:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="⛵", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="⛵", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Medium ship
                 if cell == Board.MEDIUM_SHIP:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="🚢", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="🚢", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Large ship
                 if cell == Board.LARGE_SHIP:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="🛳️", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ship_colour, emoji="🛳️", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Make unrevealed cells gray
                 if not bots_turn and not self.is_revealed((row, col)):
-                    row_buttons.append(Button(style=ButtonStyle.GRAY, label="‎", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GRAY, label="‎", custom_id=custom_id, disabled=disabled))
                     continue
 
                 # Misses appear blue on bots turn
                 if bots_turn and cell == Board.MISS:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{row}{col}", disabled=True))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, label="‎", custom_id=custom_id, disabled=disabled if end else True))
                     continue
 
                 # Water
                 if randint(1, 6) == 1:
-                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=f"battleship_{row}{col}", disabled=disabled))
+                    row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, emoji=choice(("🐳", "🐬", "🦭", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐋", "🦑")), custom_id=custom_id, disabled=disabled))
                     continue
 
-                row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, label="‎", custom_id=f"battleship_{row}{col}", disabled=disabled))
+                row_buttons.append(Button(style=ButtonStyle.GREEN if override else ButtonStyle.BLUE, label="‎", custom_id=custom_id, disabled=disabled))
 
             buttons.append(row_buttons)
 
