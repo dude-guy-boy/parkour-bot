@@ -1,0 +1,170 @@
+# tickets.py
+
+from interactions import (
+    Button,
+    Client,
+    Extension,
+    PermissionOverwrite,
+    Permissions,
+    Role,
+    SlashCommand,
+    slash_command,
+    slash_option,
+    SlashContext,
+    OptionType,
+    Embed,
+    ButtonStyle,
+    AutocompleteContext
+    )
+import src.logs as logs
+from lookups.colors import Color
+from src.database import Config, Data, UserData
+from src.ticketutil import Ticket
+
+class Tickets(Extension):
+    def __init__(self, client: Client):
+        self.client = client
+        self.logger = logs.init_logger()
+
+    config = SlashCommand(name="config", description="base config command")
+    ticket = SlashCommand(name="ticket", description="base ticket command")
+
+    @ticket.subcommand(
+        group_name="open",
+        group_description="Open a ticket",
+        sub_cmd_name="points",
+        sub_cmd_description="Open a points ticket to claim points"
+    )
+    async def open_points(self, ctx: SlashContext):        
+        await ctx.defer(ephemeral=True)
+        
+        # Check if they are verified
+        user = None
+        try:
+            user = Data.get_data_item(key=str(ctx.author.id), table="verified", name="verification")
+        except:
+            await ctx.send(embed=Embed(description="Only verified users can claim points! To learn how to verify your account, read the page on verification in /help", color=Color.RED), ephemeral=True)
+            return
+        
+        # Generate channel name
+        ticket_name = f"{user['username']}-points-ticket"
+        identifier = f"{ctx.author.id} | Points Ticket"
+        staff_roles = Config.get_config_parameter(key="staff_roles")
+
+        # Get category
+        category_id = Config.get_config_parameter("point_ticket_category_id")
+
+        # Check if they already have a ticket open
+        # TODO: This doesnt work
+        existing_ticket = await Ticket.fetch_ticket(ctx, identifier, category_id)
+
+        if(existing_ticket):
+            embed = Embed(
+                description=f"{ctx.author.mention}, you already have a points ticket open: <#{existing_ticket}>", color=Color.YORANGE)
+            await ctx.send(embeds=embed, ephemeral=True)
+            return
+
+        # Make overwrites
+        overwrites = [
+            # Make noone able to view the channel
+            PermissionOverwrite(id=int(ctx.guild_id), type=0, deny=Permissions.VIEW_CHANNEL),
+            # Allow user who created ticket to view and send messages in the channel
+            PermissionOverwrite(id=int(ctx.author.user.id), type=1, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES | Permissions.ATTACH_FILES),
+            # Allow role to view and send messages
+            PermissionOverwrite(
+                id=staff_roles["helper"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
+            PermissionOverwrite(
+                id=staff_roles["moderator"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
+            PermissionOverwrite(
+                id=staff_roles["developer"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
+            PermissionOverwrite(
+                id=staff_roles["admin"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
+        ]
+
+        ticket = await Ticket.create(ctx, name=ticket_name, overwrites=overwrites, category=category_id, identifier=identifier)
+
+        msg_embed = Embed(title="Claim Points", description="This channel has been created for you to claim points for your map completions.", color=Color.WHITE)
+        msg_embed.add_field(name="Instructions", value="Send all your map completion evidence in this channel. Staff will be with you shortly, and once have dealt with all your submissions, you may press the `Close Ticket` button below this message, or use the `/ticket close` command.\n\n`NOTE:` Try to have everything you need to submit ready before opening a ticket (screenshots, videos, etc). If you're unsure you can see what type of proof a map needs with `/map info <map>`. Its also helpful for staff if you list the completions you are submitting all in one message!")
+        msg_embed.add_field(name="Some Useful Commands", value="`/profile <user>` See your (or anyone elses) point total and get information about past completions.\n`/leaderboard points <filters>` View overall or per-type leaderboards and see where you're placed on them!")
+
+        close_button = Button(
+            style=ButtonStyle.DANGER,
+            label="Close Ticket",
+            custom_id="close_ticket"
+        )
+
+        await ticket.send(embeds=msg_embed, components=close_button)
+
+        embed = Embed(
+            description=f"Here's your new points ticket: <#{ticket.id}>", color=Color.GREEN)
+        await ctx.send(embeds=embed, ephemeral=True)
+
+        await logs.DiscordLogger.log(self.bot, ctx, f"Created a new points ticket for {ctx.author.mention}")
+        self.logger.info(f"Created a new points ticket for {ctx.author.user.username}#{ctx.author.user.discriminator}")
+
+    @slash_command(
+        name="send-ticket-button",
+        description="Send an 'open points ticket' button in chat"
+    )
+    async def send_ticket_button(self, ctx: SlashContext):
+        ticket_button = Button(
+            style=ButtonStyle.PRIMARY,
+            label="Claim Points",
+            custom_id="claim_points"
+        )
+        await ctx.channel.send(components = ticket_button)
+        await ctx.send("Sent!", ephemeral = True)
+
+    @config.subcommand(
+        group_name="tickets",
+        group_description="config for tickets",
+        sub_cmd_name="set-points-category",
+        sub_cmd_description="Set the category points tickets should be created in"
+    )
+    @slash_option(
+        name="category",
+        description="The category you want to set",
+        opt_type=OptionType.CHANNEL,
+        required=True
+    )
+    async def config_set_points_category(self, ctx: SlashContext, category):
+        Config.set_config_parameter(key="point_ticket_category_id", value=str(category.id))
+        await ctx.send(embed=Embed(description=f"Set the category to {category.mention}", color=Color.GREEN), ephemeral=True)
+
+    @config.subcommand(
+        group_name="tickets",
+        group_description="config for tickets",
+        sub_cmd_name="set-staff-roles",
+        sub_cmd_description="Set the staff roles"
+    )
+    @slash_option(
+        name="helper",
+        description="The helper role",
+        opt_type=OptionType.ROLE,
+        required=True
+    )
+    @slash_option(
+        name="moderator",
+        description="The moderator role",
+        opt_type=OptionType.ROLE,
+        required=True
+    )
+    @slash_option(
+        name="developer",
+        description="The developer role",
+        opt_type=OptionType.ROLE,
+        required=True
+    )
+    @slash_option(
+        name="admin",
+        description="The admin role",
+        opt_type=OptionType.ROLE,
+        required=True
+    )
+    async def config_set_staff_roles(self, ctx: SlashContext, helper: Role, moderator: Role, developer: Role, admin: Role):
+        Config.set_config_parameter(key="staff_roles", value={'helper': int(helper.id), 'moderator': int(moderator.id), 'developer': int(developer.id), 'admin': int(admin.id)})
+        await ctx.send(embed=Embed(description=f"Set the staff roles: {helper.mention}, {moderator.mention}, {developer.mention}, {admin.mention}", color=Color.GREEN), ephemeral=True)
+
+def setup(bot):
+    # This is called by interactions.py so it knows how to load the Extension
+    Tickets(bot)
