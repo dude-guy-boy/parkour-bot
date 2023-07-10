@@ -3,11 +3,14 @@
 from interactions import (
     Button,
     Client,
+    ComponentContext,
     Extension,
+    Message,
     PermissionOverwrite,
     Permissions,
     Role,
     SlashCommand,
+    component_callback,
     slash_command,
     slash_option,
     SlashContext,
@@ -19,7 +22,8 @@ from interactions import (
 import src.logs as logs
 from lookups.colors import Color
 from src.database import Config, Data, UserData
-from src.ticketutil import Ticket
+from src.ticketutil import Ticket, Transcribe
+from src.customsend import send
 
 class Tickets(Extension):
     def __init__(self, client: Client):
@@ -64,6 +68,8 @@ class Tickets(Extension):
             await ctx.send(embeds=embed, ephemeral=True)
             return
 
+        # TODO: overwrites dont work?
+
         # Make overwrites
         overwrites = [
             # Make noone able to view the channel
@@ -102,6 +108,62 @@ class Tickets(Extension):
         await logs.DiscordLogger.log(self.bot, ctx, f"Created a new points ticket for {ctx.author.mention}")
         self.logger.info(f"Created a new points ticket for {ctx.author.user.username}#{ctx.author.user.discriminator}")
 
+    @component_callback("close_ticket")
+    async def close_ticket_callback(self, ctx: ComponentContext):
+        # Exit if channel isnt a ticket
+        if not Ticket.is_ticket(ctx.channel):
+            await send(ctx, "This channel isnt a ticket!", color=Color.RED, ephemeral=True)
+            return
+        
+        # The channel is a ticket, get the owner
+        owner_id = Ticket.get_owner_id(ctx.channel)
+
+        # Retrieve all messages and users who participated in the ticket
+        ticket_messages = []
+        ticket_users = []
+        replied_message_ids = []
+        replied_messages = {}
+        
+        async for message in ctx.channel.history(limit=0):
+            ticket_messages.append(message)
+            if message.author not in ticket_users:
+                ticket_users.append(message.author)
+
+            if message._referenced_message_id:
+                replied_message_ids.append(int(message._referenced_message_id))
+
+        for message in ticket_messages:
+            if int(message.id) in replied_message_ids:
+                replied_messages[int(message.id)] = message
+
+        user_map = {}
+        user_profiles = []
+
+        for idx, user in enumerate(ticket_users):
+            user_ref_name = f"user{idx}"
+            user_map[int(user.id)] = user_ref_name
+            user_profiles.append(Transcribe.make_profile(user, user_ref_name))
+
+        messages = []
+
+        for message in ticket_messages:
+            messages.append(Transcribe.make_message(message, user_map, replied_messages))
+
+        html = Transcribe.make_transcript_html(owner_id, user_profiles, messages)
+
+        # TODO: Save transcript
+        with open("output.html", "w") as file:
+            # Write the string to the file
+            file.write(html)
+
+        # Close ticket
+        pass
+
+    @component_callback("claim_points")
+    async def claim_points_callback(self, ctx: ComponentContext):
+        # TODO: Create points ticket
+        pass
+
     @slash_command(
         name="send-ticket-button",
         description="Send an 'open points ticket' button in chat"
@@ -114,6 +176,8 @@ class Tickets(Extension):
         )
         await ctx.channel.send(components = ticket_button)
         await ctx.send("Sent!", ephemeral = True)
+
+    # TODO: Add logging to all config
 
     @config.subcommand(
         group_name="tickets",
@@ -130,6 +194,22 @@ class Tickets(Extension):
     async def config_set_points_category(self, ctx: SlashContext, category):
         Config.set_config_parameter(key="point_ticket_category_id", value=str(category.id))
         await ctx.send(embed=Embed(description=f"Set the category to {category.mention}", color=Color.GREEN), ephemeral=True)
+
+    @config.subcommand(
+        group_name="tickets",
+        group_description="config for tickets",
+        sub_cmd_name="transcript-dump-path",
+        sub_cmd_description="Set the dump location for transcript files"
+    )
+    @slash_option(
+        name="path",
+        description="The filepath you want to set",
+        opt_type=OptionType.STRING,
+        required=True
+    )
+    async def config_set_transcript_dump_path(self, ctx: SlashContext, path):
+        Config.set_config_parameter(key="transcript_dump_path", value=path)
+        await ctx.send(embed=Embed(description=f"Set the path to `{path}`", color=Color.GREEN), ephemeral=True)
 
     @config.subcommand(
         group_name="tickets",
@@ -164,6 +244,9 @@ class Tickets(Extension):
     async def config_set_staff_roles(self, ctx: SlashContext, helper: Role, moderator: Role, developer: Role, admin: Role):
         Config.set_config_parameter(key="staff_roles", value={'helper': int(helper.id), 'moderator': int(moderator.id), 'developer': int(developer.id), 'admin': int(admin.id)})
         await ctx.send(embed=Embed(description=f"Set the staff roles: {helper.mention}, {moderator.mention}, {developer.mention}, {admin.mention}", color=Color.GREEN), ephemeral=True)
+
+    # TODO: On emoji add event
+    # Save the emoji image for use in tickets
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
