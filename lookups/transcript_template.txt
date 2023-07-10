@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html dir="ltr" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0"
+    />
+    <title>%%title%%</title>
+    <style>
+      body {
+        color: #eee;
+        background-color: #2a2a2a;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      a {
+        color: #0099ff;
+      }
+
+      a:hover {
+        color: #037cce;
+      }
+
+      .logo {
+        display: inline-block;
+        font-weight: bold;
+        font-size: 2em;
+        margin: 0;
+      }
+
+      .title {
+        border-bottom: 1px solid #4a4a4a;
+        padding-bottom: 0.25em;
+      }
+
+      .content {
+        max-width: 1000px;
+        margin: auto;
+      }
+    </style>
+    <script>
+      window.$discordMessage = {
+        profiles: {
+          %%profiles%%
+        }
+      };
+    </script>
+    <script
+      type="module"
+      src="https://unpkg.com/@skyra/discord-components-core"
+    ></script>
+  </head>
+  <body>
+    <div>
+      <main>
+        <div class="content">
+            <h3 class="title">%%title%%</h3>
+            <discord-messages>
+            %%messages%%
+            </discord-messages>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
