@@ -16,6 +16,8 @@ images/
 *.code-workspace
 .DS_Store
 testing.py
+emojis/
+output.html
 
 # Distribution / packaging
 .Python
