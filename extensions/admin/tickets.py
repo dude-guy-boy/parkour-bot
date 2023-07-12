@@ -245,9 +245,6 @@ class Tickets(Extension):
         Config.set_config_parameter(key="staff_roles", value={'helper': int(helper.id), 'moderator': int(moderator.id), 'developer': int(developer.id), 'admin': int(admin.id)})
         await ctx.send(embed=Embed(description=f"Set the staff roles: {helper.mention}, {moderator.mention}, {developer.mention}, {admin.mention}", color=Color.GREEN), ephemeral=True)
 
-    # TODO: On emoji add event
-    # Save the emoji image for use in tickets
-
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
     Tickets(bot)
