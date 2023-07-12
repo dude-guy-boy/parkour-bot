@@ -19,6 +19,7 @@ import src.logs as logs
 from lookups.colors import Color
 from src.database import Data
 from src.files import File, Directory
+from src.customsend import send, edit
 from datetime import datetime
 from os import execl, kill
 from sys import executable, argv
@@ -26,6 +27,7 @@ from signal import SIGKILL
 from git import Repo
 import shutil
 import os
+import subprocess
 
 class Manager(Extension):
     def __init__(self, client: Client):
@@ -68,7 +70,7 @@ class Manager(Extension):
         sub_cmd_description="Updates the bot"
     )
     async def bot_update(self, ctx: SlashContext):
-        await ctx.defer()
+        pulling_msg = await send(ctx, "Pulling repository...", color=Color.YORANGE)
 
         try:
             # Do the pull
@@ -83,24 +85,30 @@ class Manager(Extension):
                 formatted_string = f"{formatted_string}\n> {line}"
 
             # Send updates
-            await ctx.send(embeds=Embed(description=f"**Pulling Repository:**{formatted_string}", color=Color.GREEN))
+            await edit(pulling_msg, formatted_string)
 
             # Log the update
             await logs.DiscordLogger.log_raw(self.bot, description=f"Updated Bot.{formatted_string}")
 
             reformatted = formatted_string.replace('\n', ':')
             self.logger.info(f"Pulled repository. {reformatted}")
+
+            # Update dependencies
+            update_deps = await send(ctx, "Updating dependencies...", color=Color.YORANGE, to_channel=True)
+            requirements_str, success = self.install_dependencies_from_requirements()
+            await update_deps.edit(embed=Embed(description=requirements_str, color=Color.GREEN if success else Color.RED))
+
             await self.restart(ctx)
         except:
-            await ctx.send(embeds=Embed(description="Failed to pull updates", color=Color.RED))
+            await send("Failed to pull updates", color=Color.RED)
             self.logger.warning("Failed to pull repository")
-            await self.discord_logger.log_command(ctx, f"Failed to pull repository")
+            await logs.DiscordLogger.log(self.bot, ctx, "Failed to pull repository")
 
     ### /BOT RESTART ###
     async def restart(self, ctx: SlashContext):
         # Set channel where message should be sent on startup
         Data.set_data_item("restart_channel", str(ctx.channel.id))
-        await ctx.send(embeds=Embed(description="Restarting...", color=Color.YORANGE))
+        await ctx.channel.send(embeds=Embed(description="Restarting...", color=Color.YORANGE))
         self.logger.info("Restarting bot & socket server")
 
         # Kill server process so it will also be restarted
@@ -293,6 +301,13 @@ class Manager(Extension):
         self.do_backup()
 
         self.logger.info("Backup created")
+
+    def install_dependencies_from_requirements(self):
+        try:
+            subprocess.check_call(['pip', 'install', '-r', './requirements.txt'])
+            return "All dependencies updated successfully.", True
+        except subprocess.CalledProcessError as e:
+            return f"Failed to install dependencies. Error: {str(e)}", False
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
