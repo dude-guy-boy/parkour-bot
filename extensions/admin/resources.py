@@ -19,7 +19,7 @@ from src.files import Directory
 import zipfile
 import os
 
-class Template(Extension):
+class Resources(Extension):
     def __init__(self, client: Client):
         self.client = client
         self.logger = logs.init_logger()
@@ -56,7 +56,6 @@ class Template(Extension):
         download_dir = Directory("./downloads/")
         emojis_dir = Directory(Config.get_config_parameter("emojis_filepath"))
 
-        # try:
         # Reset the downloads and emojis directory
         download_dir.delete()
         download_dir.create()
@@ -91,9 +90,7 @@ class Template(Extension):
         download_dir.delete()
         
         await edit(message, "Latest Twemoji SVG images downloaded successfully.", color=Color.GREEN)
-        # except Exception as e:
-        #     await logs.DiscordLogger.log(self.bot, ctx, f"Failed to download Twemoji SVG images. Error: {str(e)}")
 
 def setup(bot):
     # This is called by interactions.py so it knows how to load the Extension
-    Template(bot)
+    Resources(bot)
