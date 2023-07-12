@@ -16,6 +16,7 @@ from interactions import (
 import src.logs as logs
 from lookups.colors import Color
 from src.database import Config, Data
+from src.customsend import send, edit
 
 class Template(Extension):
     def __init__(self, client: Client):
