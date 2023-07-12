@@ -18,6 +18,7 @@ images/
 testing.py
 emojis/
 output.html
+downloads/
 
 # Distribution / packaging
 .Python
