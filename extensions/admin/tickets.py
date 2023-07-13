@@ -1,5 +1,6 @@
 # tickets.py
 
+import os
 from interactions import (
     Button,
     Client,
@@ -19,6 +20,8 @@ from interactions import (
     ButtonStyle,
     AutocompleteContext
     )
+import requests
+from src.files import Directory
 import src.logs as logs
 from lookups.colors import Color
 from src.database import Config, Data, UserData
@@ -118,17 +121,26 @@ class Tickets(Extension):
         # The channel is a ticket, get the owner
         owner_id = Ticket.get_owner_id(ctx.channel)
 
+        # Get transcript dump path and create if doesnt exist
+        dump_dir = Directory(Config.get_config_parameter("transcript_dump_path"))
+        attachments_dir = Directory(os.path.relpath(dump_dir.path) + "/attachments")
+        dump_dir.create()
+        attachments_dir.create()
+
         # Retrieve all messages and users who participated in the ticket
-        ticket_messages = []
+        ticket_messages: list[Message] = []
         ticket_users = []
         replied_message_ids = []
         replied_messages = {}
         
         async for message in ctx.channel.history(limit=0):
             ticket_messages.append(message)
+
+            # Save list of participating users
             if message.author not in ticket_users:
                 ticket_users.append(message.author)
 
+            # Save list of replied messages
             if message._referenced_message_id:
                 replied_message_ids.append(int(message._referenced_message_id))
 
@@ -136,6 +148,7 @@ class Tickets(Extension):
             if int(message.id) in replied_message_ids:
                 replied_messages[int(message.id)] = message
 
+        # Make html profiles for each participating user
         user_map = {}
         user_profiles = []
 
@@ -144,11 +157,20 @@ class Tickets(Extension):
             user_map[int(user.id)] = user_ref_name
             user_profiles.append(Transcribe.make_profile(user, user_ref_name))
 
+        # Make all the messages html
         messages = []
 
         for message in ticket_messages:
-            messages.append(Transcribe.make_message(message, user_map, replied_messages))
+            # Save any attachments
+            for attachment in message.attachments:
+                response = requests.get(attachment.url, stream=True)
+        
+                with open(attachments_dir.path + f"/{attachment.id}.{attachment.filename.split('.')[-1]}", 'wb') as f:
+                    f.write(response.content)
+                    
+            messages.append(Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path))
 
+        # Combine into final html document
         html = Transcribe.make_transcript_html(owner_id, user_profiles, messages)
 
         # TODO: Save transcript
