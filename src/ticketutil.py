@@ -1,7 +1,11 @@
+import os
 import re
-from interactions import BaseChannel, Button, ButtonStyle, Client, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, TimestampStyles
-from datetime import datetime
+from interactions import BaseChannel, Button, ButtonStyle, Client, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, StickerFormatType, StickerItem, TimestampStyles
 import emoji
+from PIL import Image
+from moviepy.editor import VideoFileClip
+import imageio
+from src.download import download
 
 class Ticket:
     @classmethod
@@ -47,18 +51,20 @@ class Transcribe:
                 '}')
     
     @classmethod
-    def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str):
-        # TODO: Images, attachments, join messages when sent close together (this doesnt seem possible), more extensive markdown formatting, mention formatting
-        # TODO: Replace in-content custom and default emojis and stickers
+    async def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str):
+        # TODO: connect messages when sent close together
+        # TODO: Add markdown headings
+        # TODO: Role, user and channel mentions
+        # TODO: Replace in-content custom and default emojis
         
         reply = ""
         embeds = ""
 
         if message._referenced_message_id:
-            reply = self.make_reply(replied_messages[int(message._referenced_message_id)], user_map[int(replied_messages[int(message._referenced_message_id)].author.id)]) + "\n"
+            reply = self().make_reply(replied_messages[int(message._referenced_message_id)], user_map[int(replied_messages[int(message._referenced_message_id)].author.id)]) + "\n"
 
         if message.embeds:
-            embeds = self.make_embeds(message)
+            embeds = self().make_embeds(message)
 
         time = f"{message.timestamp.day}/{message.timestamp.month}/{message.timestamp.year} {message.timestamp.hour:02d}:{message.timestamp.minute:02d}"
 
@@ -74,38 +80,114 @@ class Transcribe:
         attachments = ''
 
         if message.components:
-            components = self.make_components(message)
+            components = self().make_components(message)
 
         if message.interaction:
-            slash_command = self.make_slash_command(message, user_map)
+            slash_command = self().make_slash_command(message, user_map)
 
         if message.reactions:
-            reactions = self.make_reactions(message)
+            reactions = self().make_reactions(message)
 
-        if message.attachments:
-            attachments = self.make_attachments(message, attachments_path)
-
-        if message.sticker_items:
-            print(message.sticker_items)
+        if message.attachments or message.sticker_items:
+            attachments = await self().make_attachments(message, attachments_path)
 
         return (header + slash_command + reply + embeds + components + reactions + attachments +
-                f'{self.format_message_content(message.content)}\n'
+                f'{self().format_message_content(message.content)}\n'
                 f'</discord-message>\n')
 
-    @classmethod
-    def make_attachments(self, message: Message, attachments_path: str):
+    async def make_attachments(self, message: Message, attachments_path: str):
         attachments_str = '<discord-attachments slot="attachments">\n'
 
-        # TODO: Handle non media attachments
+        # Send stickers as attachments
+        if message.sticker_items:
+            attachments_str += await self.make_stickers(message, attachments_path)
 
-        for attachment in message.attachments:
-            attachments_str += f'<discord-attachment url="{attachments_path}/{attachment.id}.{attachment.filename.split(".")[-1]}" alt="{attachment.filename}" width="850"></discord-attachment>\n'
+        # Figure out attachment type
+        if message.attachments:
+            for attachment in message.attachments:
+                attachment_filepath = f'{attachments_path}/{attachment.id}.{attachment.filename.split(".")[-1]}'
+
+                # Figure out type
+                file_ext = attachment.filename.split(".")[-1]
+                if file_ext.lower() in ("jpg", "jpeg", "png", "gif", "gifv"):
+                    attachments_str += self.make_image_attachment(attachment_filepath)
+                    continue
+
+                if file_ext.lower() in ("webm", "mp4", "mov"):
+                    attachments_str += self.make_video_attachment(attachment_filepath, file_ext)
+                    continue
+
+                if file_ext.lower() in ("mp3", "wav", "ogg", "flac"):
+                    attachments_str += self.make_audio_attachment(attachment_filepath, attachment.filename, file_ext)
+                    continue
+
+                attachments_str += self.make_non_embed_attachment(attachment_filepath, attachment.filename, file_ext)
 
         attachments_str += '</discord-attachments>\n'
 
         return attachments_str
 
-    @classmethod
+    async def make_stickers(self, message: Message, attachments_path: str):
+        stickers_str = ''
+
+        for sticker in message.sticker_items:
+            # If its a LOTTIE sticker
+            if sticker.format_type == StickerFormatType.LOTTIE:
+                sticker_path = f"{attachments_path}/{sticker.id}.json"
+
+                if f'{sticker.id}.json' not in os.listdir(attachments_path):
+                    await download(f"https://cdn.discordapp.com/stickers/{sticker.id}.json", sticker_path)
+
+                stickers_str += (
+                    f'<div id="lottie-container-{sticker.id}" style="width: 160px;"></div>\n'
+                    '<script>\n'
+                    "    var animation = bodymovin.loadAnimation({\n"
+                    f"        container: document.getElementById('lottie-container-{sticker.id}'),\n"
+                    f"        path: '{sticker_path}',\n"
+                    "        renderer: 'svg',\n"
+                    "        loop: true,\n"
+                    "        autoplay: true,\n"
+                    "        name: 'sticker'\n"
+                    "    })\n"
+                    '</script>\n'
+                )
+
+                continue
+            
+            # If its a normal sticker
+            if f'{sticker.id}.png' not in os.listdir(attachments_path):
+                sticker_url = f"https://cdn.discordapp.com/stickers/{sticker.id}.png"
+                stickers_str += f'<discord-attachment url="{sticker_url}" alt="{sticker.id}.png" width="160"></discord-attachment>\n'
+
+        return stickers_str
+
+    def make_image_attachment(self, filepath: str):
+        width = self.get_media_width(filepath)
+        return f'<discord-attachment url="{filepath}" alt="{filepath.split("/")[-1]}" width="{width}"></discord-attachment>\n'
+
+    def make_non_embed_attachment(self, filepath: str, filename: str, file_ext: str):
+        return (
+            '<div style="width: 500px; padding: 10px; box-sizing: border-box; border-radius: 10px; background-color: #2f3136; text-indent: 5px; border: 0.5px solid #282828;">\n'
+            '<div>\n'
+            '<img src="assets/emptydoc.svg" width="30px" style="float: left; padding-top: 0px; padding-right: 5px; padding-left: 5px;" alt="file">\n'
+            f'<p style="margin-top: 5px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="{filepath}" download>{filename}</a></p>\n'
+            f'<p style="margin-top: -5px; margin-bottom: 5px; padding-top: 0px; font-size: 12px; color: #868484; font-weight: 500;">{self.get_file_size(filepath)}</p>\n'
+            '</div></div>\n'
+        )
+
+    def make_audio_attachment(self, filepath: str, filename: str, file_ext: str):
+        return (
+            '<div style="width: 500px; padding: 10px; box-sizing: border-box; border-radius: 10px; background-color: #2f3136; text-indent: 5px; border: 0.5px solid #282828;">\n'
+            '<div><img src="assets/audiodoc.svg" width="24px" style="float: left; padding-top: 4px; padding-right: 5px; padding-left: 5px;" alt="audio">\n'
+            f'<p style="margin-top: 0px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="{filepath}" download>{filename}</a></p>\n'
+            f'<p style="margin-top: -5px; margin-bottom: 8px; padding-top: 0px; font-size: 12px; color: #868484; font-weight: 500;">{self.get_file_size(filepath)}</p></div>\n'
+            f'<audio controls style="width: 450px;"><source src="{filepath}" type="audio/{file_ext}">Your browser does not support the audio element.</audio></div>\n'
+        )
+
+    def make_video_attachment(self, filepath: str, file_ext: str):
+        width = self.get_media_width(filepath)
+        return f'<video width="{width}" controls><source src="{filepath}" type="video/{file_ext}">Your browser does not support the video tag.</video>\n'
+
     def make_reactions(self, message: Message):
         emojis = []
 
@@ -132,11 +214,9 @@ class Transcribe:
 
         return reactions_str
 
-    @classmethod
     def make_slash_command(self, message: Message, user_map: dict):        
         return f'<discord-command slot="reply" profile="{user_map[int(message.interaction._user_id)]}" command="/{message.interaction.name}"></discord-command>'
 
-    @classmethod
     def format_message_content(self, content: str):
         content = self.replace_multiline_code(content)
         content = self.replace_inline_code(content)
@@ -152,7 +232,6 @@ class Transcribe:
 
         return content
 
-    @classmethod
     def make_components(self, message: Message):
         rows = []
 
@@ -173,7 +252,6 @@ class Transcribe:
 
         return '<discord-attachments slot="components">\n' + "\n".join(rows) + '\n</discord-attachments>'
 
-    @classmethod
     def button_type(self, number):
         match number:
             case 1:
@@ -185,7 +263,6 @@ class Transcribe:
             case 4:
                 return "destructive"
 
-    @classmethod
     def make_embeds(self, message: Message):
         embeds = []
 
@@ -229,7 +306,6 @@ class Transcribe:
 
         return "\n".join(embeds)
 
-    @classmethod
     def make_reply(self, message: Message, profile: str):
         # Check if replied message has attachment or has been edited
         # <discord-reply slot="reply" profile="skyra" edited attachment>What do you think about this image?</discord-reply>
@@ -256,39 +332,75 @@ class Transcribe:
         template_content = template_content.replace("%%profiles%%", users)
         template_content = template_content.replace("%%messages%%", messages)
 
-        return self.handy_replaces(template_content)
+        return self().handy_replaces(template_content)
     
-    @classmethod
     def replace_italics(self, text):
         return re.sub(r'([*_])(.*?)(?<!\\)\1', r'<discord-italic>\2</discord-italic>', text)
     
-    @classmethod
     def replace_bold(self, text):
         return re.sub(r'\*\*(.*?)\*\*', r'<discord-bold>\1</discord-bold>', text)
 
-    @classmethod
     def replace_quote(self, text):
         return re.sub(r'^> (.+?)(?:<br>)?$', r'<discord-quote>\1</discord-quote>', text, flags=re.MULTILINE)
 
-    @classmethod
     def replace_multiline_code(self, text):
         return re.sub(r'```([^`]+)```', r'<code class="multiline">\1</code>', text)
 
-    @classmethod
     def replace_inline_code(self, text):
         return re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
     
-    @classmethod
     def replace_underline(self, text):
         return re.sub(r'__(.*?)__', r'<discord-underlined>\1</discord-underlined>', text)
     
-    @classmethod
     def replace_line_breaks(self, text):
         return text.replace('\n', '<br>')
     
-    @classmethod
     def handy_replaces(self, text: str):
         text = text.replace('<code class="multiline"><br>', '<code class="multiline">')
         text = text.replace('</discord-quote><br>', '</discord-quote>')
 
         return text
+    
+    def get_media_width(self, media_path):
+        default_width = 850
+        
+        try:
+            if media_path.lower().endswith((".png", ".jpg", ".jpeg")):
+                with Image.open(media_path) as image:
+                    width = image.size[0]
+            elif media_path.lower().endswith((".gif", ".apng")):
+                with imageio.imread(media_path) as gif:
+                    width = gif.shape[1]
+            elif media_path.lower().endswith((".mp4", ".webm")):
+                clip = VideoFileClip(media_path)
+                width = clip.size[0]
+                clip.close()
+            else:
+                return default_width
+            
+            return min(default_width, width)
+        except Exception as e:
+            return default_width
+        
+    def get_file_size(self, filepath):
+        if os.path.exists(filepath):
+            file_size_in_bytes = os.path.getsize(filepath)
+            return self.convert_file_size(file_size_in_bytes)
+        
+        return "???"
+    
+    def convert_file_size(self, size_in_bytes):
+        if size_in_bytes < 0:
+            raise ValueError("Size must be a non-negative number.")
+
+        suffixes = ['bytes', 'KB', 'MB', 'GB']
+        suffix_index = 0
+
+        while size_in_bytes >= 1024 and suffix_index < len(suffixes) - 1:
+            size_in_bytes /= 1024
+            suffix_index += 1
+
+        if suffix_index == 0:
+            return f"{int(size_in_bytes)} {suffixes[suffix_index]}"
+        else:
+            return f"{size_in_bytes:.2f} {suffixes[suffix_index]}"
