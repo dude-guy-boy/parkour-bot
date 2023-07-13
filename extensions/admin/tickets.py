@@ -18,13 +18,11 @@ from interactions import (
     OptionType,
     Embed,
     ButtonStyle,
-    AutocompleteContext
     )
-import requests
 from src.files import Directory
 import src.logs as logs
 from lookups.colors import Color
-from src.database import Config, Data, UserData
+from src.database import Config, Data
 from src.download import download
 from src.ticketutil import Ticket, Transcribe
 from src.customsend import send
@@ -133,7 +131,11 @@ class Tickets(Extension):
         ticket_users = []
         replied_message_ids = []
         replied_messages = {}
+        roles = {}
+        channels = {}
+        users = {}
         
+        message: Message
         async for message in ctx.channel.history(limit=0):
             ticket_messages.append(message)
 
@@ -144,6 +146,15 @@ class Tickets(Extension):
             # Save list of replied messages
             if message._referenced_message_id:
                 replied_message_ids.append(int(message._referenced_message_id))
+
+            async for member in message.mention_users:
+                users[str(member.user.id)] = str(member.display_name)
+
+            for channel in message.mention_channels:
+                channels[str(channel.id)] = str(channel.name)
+
+            async for role in message.mention_roles:
+                roles[str(role.id)] = (str(role.name), str(role.color.hex))
 
         for message in ticket_messages:
             if int(message.id) in replied_message_ids:
@@ -169,7 +180,7 @@ class Tickets(Extension):
                 if f"{attachment.id}.{attachment.filename.split('.')[-1]}" not in os.listdir(attachments_dir.path):
                     await download(attachment.url, attachment_path)
 
-            messages.append(await Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path))
+            messages.append(await Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path, roles, channels, users))
 
         # Combine into final html document
         html = Transcribe.make_transcript_html(owner_id, user_profiles, messages)
