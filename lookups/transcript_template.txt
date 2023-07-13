@@ -50,6 +50,7 @@
       type="module"
       src="https://unpkg.com/@skyra/discord-components-core"
     ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.9.6/lottie.min.js"></script>
   </head>
   <body>
     <div>
