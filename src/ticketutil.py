@@ -51,11 +51,8 @@ class Transcribe:
                 '}')
     
     @classmethod
-    async def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str):
+    async def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str, roles, channels, users):
         # TODO: connect messages when sent close together
-        # TODO: Add markdown headings
-        # TODO: Role, user and channel mentions
-        # TODO: Replace in-content custom and default emojis
         
         reply = ""
         embeds = ""
@@ -64,7 +61,7 @@ class Transcribe:
             reply = self().make_reply(replied_messages[int(message._referenced_message_id)], user_map[int(replied_messages[int(message._referenced_message_id)].author.id)]) + "\n"
 
         if message.embeds:
-            embeds = self().make_embeds(message)
+            embeds = self().make_embeds(message, roles, channels, users)
 
         time = f"{message.timestamp.day}/{message.timestamp.month}/{message.timestamp.year} {message.timestamp.hour:02d}:{message.timestamp.minute:02d}"
 
@@ -92,7 +89,7 @@ class Transcribe:
             attachments = await self().make_attachments(message, attachments_path)
 
         return (header + slash_command + reply + embeds + components + reactions + attachments +
-                f'{self().format_message_content(message.content)}\n'
+                f'{self().format_message_content(message.content, roles, channels, users)}\n'
                 f'</discord-message>\n')
 
     async def make_attachments(self, message: Message, attachments_path: str):
@@ -217,7 +214,12 @@ class Transcribe:
     def make_slash_command(self, message: Message, user_map: dict):        
         return f'<discord-command slot="reply" profile="{user_map[int(message.interaction._user_id)]}" command="/{message.interaction.name}"></discord-command>'
 
-    def format_message_content(self, content: str):
+    def format_message_content(self, content: str, roles, channels, users):
+        # TODO: Role, user and channel mentions
+
+        # TODO: Add markdown headings
+        # TODO: Replace in-content custom and default emojis
+
         content = self.replace_multiline_code(content)
         content = self.replace_inline_code(content)
 
@@ -230,7 +232,32 @@ class Transcribe:
 
         content = self.replace_line_breaks(content)
 
+        content = self.format_channel_mentions(content, channels)
+        content = self.format_user_mentions(content, users)
+        content = self.format_role_mentions(content, roles)
+
         return content
+
+    def format_emojis(self, text):
+        pass
+
+    def format_user_mentions(self, text: str, users: dict):
+        for user in users:
+            text = text.replace(f"<@{user}>", f"<discord-mention>{users[user]}</discord-mention>")
+
+        return text
+    
+    def format_role_mentions(self, text: str, roles: dict):
+        for role in roles:
+            text = text.replace(f"<@&{role}>", f'<discord-mention type="role" color="{roles[role][1]}">{roles[role][0]}</discord-mention>')
+
+        return text
+    
+    def format_channel_mentions(self, text: str, channels: dict):
+        for channel in channels:
+            text = text.replace(f"<#{channel}>", f'<discord-mention type="channel">{channels[channel]}</discord-mention>')
+
+        return text
 
     def make_components(self, message: Message):
         rows = []
@@ -263,7 +290,7 @@ class Transcribe:
             case 4:
                 return "destructive"
 
-    def make_embeds(self, message: Message):
+    def make_embeds(self, message: Message, roles, channels, users):
         embeds = []
 
         embed: Embed
@@ -278,14 +305,14 @@ class Transcribe:
             embed_url = f'url="{embed.url}"' if embed.url else ''
 
             embed_str = f'<discord-embed slot="embeds" {author_image} {author_name} {author_url} {embed_color} {embed_title} {embed_image} {embed_thumbnail} {embed_url}>\n'
-            embed_str += f'<discord-embed-description slot="description">{self.format_message_content(embed.description)}</discord-embed-description>\n'
+            embed_str += f'<discord-embed-description slot="description">{self.format_message_content(embed.description, roles, channels, users)}</discord-embed-description>\n'
             
             # Fields
             if embed.fields:
                 embed_fields = '<discord-embed-fields slot="fields">\n'
 
                 for field in embed.fields:
-                    embed_fields += f'<discord-embed-field field-title="{field.name}">{self.format_message_content(field.value)}</discord-embed-field>\n'
+                    embed_fields += f'<discord-embed-field field-title="{field.name}">{self.format_message_content(field.value, roles, channels, users)}</discord-embed-field>\n'
 
                 embed_fields += '</discord-embed-fields>\n'
 
