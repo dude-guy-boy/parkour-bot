@@ -1,6 +1,7 @@
 import re
 from interactions import BaseChannel, Button, ButtonStyle, Client, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, TimestampStyles
 from datetime import datetime
+import emoji
 
 class Ticket:
     @classmethod
@@ -28,17 +29,8 @@ class Ticket:
             return None
         
 class Transcribe:
-
     @classmethod
     def make_profile(self, user: Member, ref_name: str):
-        # format
-        # skyra: {
-        #     author: "Skyra",
-        #     avatar: "https://github.com/NM-EEA-Y.png",
-        #     roleColor: "#1e88e5",
-        #     bot: true,
-        # }
-
         # Get display colour
         display_colour = "#ffffff"
 
@@ -55,8 +47,9 @@ class Transcribe:
                 '}')
     
     @classmethod
-    def make_message(self, message: Message, user_map: dict, replied_messages: dict):
-        # TODO: Images, attachments, reactions, join messages when sent close together, content markdown formatting, mention formatting
+    def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str):
+        # TODO: Images, attachments, join messages when sent close together (this doesnt seem possible), more extensive markdown formatting, mention formatting
+        # TODO: Replace in-content custom and default emojis and stickers
         
         reply = ""
         embeds = ""
@@ -75,15 +68,88 @@ class Transcribe:
             header += ' edited'
 
         header += '>\n'
+        components = ''
+        slash_command = ''
+        reactions = ''
+        attachments = ''
 
-        components = self.make_components(message)
+        if message.components:
+            components = self.make_components(message)
 
-        return (header + reply + embeds + components +
-                f'  {self.format_message_content(message.content)}\n'
+        if message.interaction:
+            slash_command = self.make_slash_command(message, user_map)
+
+        if message.reactions:
+            reactions = self.make_reactions(message)
+
+        if message.attachments:
+            attachments = self.make_attachments(message, attachments_path)
+
+        if message.sticker_items:
+            print(message.sticker_items)
+
+        return (header + slash_command + reply + embeds + components + reactions + attachments +
+                f'{self.format_message_content(message.content)}\n'
                 f'</discord-message>\n')
 
     @classmethod
+    def make_attachments(self, message: Message, attachments_path: str):
+        attachments_str = '<discord-attachments slot="attachments">\n'
+
+        # TODO: Handle non media attachments
+
+        for attachment in message.attachments:
+            attachments_str += f'<discord-attachment url="{attachments_path}/{attachment.id}.{attachment.filename.split(".")[-1]}" alt="{attachment.filename}" width="850"></discord-attachment>\n'
+
+        attachments_str += '</discord-attachments>\n'
+
+        return attachments_str
+
+    @classmethod
+    def make_reactions(self, message: Message):
+        emojis = []
+
+        for reaction in message.reactions:
+            if str(reaction.emoji).startswith("<:"):
+                ext = ".gif" if reaction.emoji.animated else ".png"
+                emoji_id = str(reaction.emoji).split(":")[2][:-1]
+
+                # TODO: When interaction updates, change this url for emoji.url
+                emojis.append((reaction.emoji.name, f"https://cdn.discordapp.com/emojis/{emoji_id}{ext}", reaction.count))
+                break
+
+            for emoji_item in emoji.emoji_list(str(reaction.emoji)):
+                # Convert emoji unicode chars into twemoji image filename
+                raw_emoji_unicode = emoji_item['emoji'].encode('unicode_escape').decode('utf-8')
+                unicode_chars = raw_emoji_unicode.split('\\U000')[1:]
+                emojis.append((emoji_item['emoji'], f"https://raw.githubusercontent.com/jdecked/twemoji/main/assets/svg/{'-'.join(unicode_chars)}.svg", reaction.count))
+
+        reactions_str = '<discord-reactions slot="reactions">\n'
+        for emoji_entry in emojis:
+            reactions_str += f'<discord-reaction name="{emoji_entry[0]}" emoji="{emoji_entry[1]}" count="{emoji_entry[2]}"></discord-reaction>\n'
+
+        reactions_str += '</discord-reactions>\n'
+
+        return reactions_str
+
+    @classmethod
+    def make_slash_command(self, message: Message, user_map: dict):        
+        return f'<discord-command slot="reply" profile="{user_map[int(message.interaction._user_id)]}" command="/{message.interaction.name}"></discord-command>'
+
+    @classmethod
     def format_message_content(self, content: str):
+        content = self.replace_multiline_code(content)
+        content = self.replace_inline_code(content)
+
+        content = self.replace_underline(content)
+
+        content = self.replace_bold(content)
+        content = self.replace_italics(content)
+
+        content = self.replace_quote(content)
+
+        content = self.replace_line_breaks(content)
+
         return content
 
     @classmethod
@@ -96,7 +162,7 @@ class Transcribe:
             component: Button
             for component in row.components:
                 if isinstance(component, Button):
-                    print(component)
+                    # TODO: Link buttons
                     disabled = "disabled" if component.disabled else ""
                     row_str += f'<discord-button type="{self.button_type(int(component.style))}" {disabled}>{component.label}</discord-button>\n'
                 
@@ -135,14 +201,14 @@ class Transcribe:
             embed_url = f'url="{embed.url}"' if embed.url else ''
 
             embed_str = f'<discord-embed slot="embeds" {author_image} {author_name} {author_url} {embed_color} {embed_title} {embed_image} {embed_thumbnail} {embed_url}>\n'
-            embed_str += f'<discord-embed-description slot="description">{embed.description}</discord-embed-description>\n'
+            embed_str += f'<discord-embed-description slot="description">{self.format_message_content(embed.description)}</discord-embed-description>\n'
             
             # Fields
             if embed.fields:
                 embed_fields = '<discord-embed-fields slot="fields">\n'
 
                 for field in embed.fields:
-                    embed_fields += f'<discord-embed-field field-title="{field.name}">{field.value}</discord-embed-field>\n'
+                    embed_fields += f'<discord-embed-field field-title="{field.name}">{self.format_message_content(field.value)}</discord-embed-field>\n'
 
                 embed_fields += '</discord-embed-fields>\n'
 
@@ -158,7 +224,7 @@ class Transcribe:
 
                 embed_str += f'<discord-embed-footer slot="footer" {footer_image} {footer_timestamp}>{embed.footer.text}</discord-embed-footer>\n'
 
-            embed_str += "</discord-embed>"
+            embed_str += "</discord-embed>\n"
             embeds.append(embed_str)
 
         return "\n".join(embeds)
@@ -190,4 +256,39 @@ class Transcribe:
         template_content = template_content.replace("%%profiles%%", users)
         template_content = template_content.replace("%%messages%%", messages)
 
-        return template_content
+        return self.handy_replaces(template_content)
+    
+    @classmethod
+    def replace_italics(self, text):
+        return re.sub(r'([*_])(.*?)(?<!\\)\1', r'<discord-italic>\2</discord-italic>', text)
+    
+    @classmethod
+    def replace_bold(self, text):
+        return re.sub(r'\*\*(.*?)\*\*', r'<discord-bold>\1</discord-bold>', text)
+
+    @classmethod
+    def replace_quote(self, text):
+        return re.sub(r'^> (.+?)(?:<br>)?$', r'<discord-quote>\1</discord-quote>', text, flags=re.MULTILINE)
+
+    @classmethod
+    def replace_multiline_code(self, text):
+        return re.sub(r'```([^`]+)```', r'<code class="multiline">\1</code>', text)
+
+    @classmethod
+    def replace_inline_code(self, text):
+        return re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+    
+    @classmethod
+    def replace_underline(self, text):
+        return re.sub(r'__(.*?)__', r'<discord-underlined>\1</discord-underlined>', text)
+    
+    @classmethod
+    def replace_line_breaks(self, text):
+        return text.replace('\n', '<br>')
+    
+    @classmethod
+    def handy_replaces(self, text: str):
+        text = text.replace('<code class="multiline"><br>', '<code class="multiline">')
+        text = text.replace('</discord-quote><br>', '</discord-quote>')
+
+        return text
