@@ -25,6 +25,7 @@ from src.files import Directory
 import src.logs as logs
 from lookups.colors import Color
 from src.database import Config, Data, UserData
+from src.download import download
 from src.ticketutil import Ticket, Transcribe
 from src.customsend import send
 
@@ -161,14 +162,14 @@ class Tickets(Extension):
         messages = []
 
         for message in ticket_messages:
-            # Save any attachments
             for attachment in message.attachments:
-                response = requests.get(attachment.url, stream=True)
-        
-                with open(attachments_dir.path + f"/{attachment.id}.{attachment.filename.split('.')[-1]}", 'wb') as f:
-                    f.write(response.content)
-                    
-            messages.append(Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path))
+                # Download and save the attachments if they havent already been
+
+                attachment_path = f"{attachments_dir.path}/{attachment.id}.{attachment.filename.split('.')[-1]}"
+                if f"{attachment.id}.{attachment.filename.split('.')[-1]}" not in os.listdir(attachments_dir.path):
+                    await download(attachment.url, attachment_path)
+
+            messages.append(await Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path))
 
         # Combine into final html document
         html = Transcribe.make_transcript_html(owner_id, user_profiles, messages)
