@@ -1,5 +1,6 @@
 # tickets.py
 
+from datetime import datetime
 import os
 from interactions import (
     Button,
@@ -119,6 +120,7 @@ class Tickets(Extension):
         
         # The channel is a ticket, get the owner
         owner_id = Ticket.get_owner_id(ctx.channel)
+        owner = await ctx.guild.fetch_member(owner_id)
 
         # Get transcript dump path and create if doesnt exist
         dump_dir = Directory(Config.get_config_parameter("transcript_dump_path"))
@@ -148,7 +150,7 @@ class Tickets(Extension):
                 replied_message_ids.append(int(message._referenced_message_id))
 
             async for member in message.mention_users:
-                users[str(member.user.id)] = str(member.display_name)
+                users[str(member.user.id)] = str(member.username)
 
             for channel in message.mention_channels:
                 channels[str(channel.id)] = str(channel.name)
@@ -182,8 +184,10 @@ class Tickets(Extension):
 
             messages.append(await Transcribe.make_message(message, user_map, replied_messages, attachments_dir.path, roles, channels, users))
 
+        time = datetime.utcnow()
+
         # Combine into final html document
-        html = Transcribe.make_transcript_html(owner_id, user_profiles, messages)
+        html = Transcribe.make_transcript_html(owner, user_profiles, messages, time)
 
         # TODO: Save transcript
         with open("output.html", "w") as file:
