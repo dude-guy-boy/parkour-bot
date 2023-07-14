@@ -62,20 +62,17 @@ class Tickets(Extension):
         category_id = Config.get_config_parameter("point_ticket_category_id")
 
         # Check if they already have a ticket open
-        # TODO: This doesnt work
         existing_ticket = await Ticket.fetch_ticket(ctx, identifier, category_id)
 
         if(existing_ticket):
             embed = Embed(
-                description=f"{ctx.author.mention}, you already have a points ticket open: <#{existing_ticket}>", color=Color.YORANGE)
+                description=f"{ctx.author.mention}, you already have a points ticket open: {existing_ticket.mention}", color=Color.YORANGE)
             await ctx.send(embeds=embed, ephemeral=True)
             return
 
-        # TODO: overwrites dont work?
-
         # Make overwrites
         overwrites = [
-            # Make noone able to view the channel
+            # Make @everyone unable to view the channel
             PermissionOverwrite(id=int(ctx.guild_id), type=0, deny=Permissions.VIEW_CHANNEL),
             # Allow user who created ticket to view and send messages in the channel
             PermissionOverwrite(id=int(ctx.author.user.id), type=1, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES | Permissions.ATTACH_FILES),
@@ -86,8 +83,8 @@ class Tickets(Extension):
                 id=staff_roles["moderator"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
             PermissionOverwrite(
                 id=staff_roles["developer"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
-            PermissionOverwrite(
-                id=staff_roles["admin"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES),
+            PermissionOverwrite(   
+                id=staff_roles["admin"], type=0, allow=Permissions.VIEW_CHANNEL | Permissions.SEND_MESSAGES)
         ]
 
         ticket = await Ticket.create(ctx, name=ticket_name, overwrites=overwrites, category=category_id, identifier=identifier)
