@@ -1,7 +1,8 @@
+from datetime import datetime
 import os
 import re
 import unicodedata
-from interactions import BaseChannel, Button, ButtonStyle, Client, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, StickerFormatType, StickerItem, TimestampStyles
+from interactions import BaseChannel, Button, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, StickerFormatType
 import emoji
 from PIL import Image
 from moviepy.editor import VideoFileClip
@@ -45,16 +46,14 @@ class Transcribe:
                 break
 
         return (f'{ref_name}: {"{"}\n'
-                f'author: "{user.display_name}",\n'
+                f'author: "{user.username}",\n'
                 f'avatar: "{user.avatar.url}",\n'
                 f'roleColor: "{display_colour}",\n'
                 f'bot: {str(user.bot).lower()}\n'
                 '}')
     
     @classmethod
-    async def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str, roles, channels, users):
-        # TODO: connect messages when sent close together
-        
+    async def make_message(self, message: Message, user_map: dict, replied_messages: dict, attachments_path: str, roles, channels, users):        
         reply = ""
         embeds = ""
 
@@ -339,12 +338,15 @@ class Transcribe:
             component: Button
             for component in row.components:
                 if isinstance(component, Button):
-                    # TODO: Link buttons
                     disabled = "disabled" if component.disabled else ""
-                    row_str += f'<discord-button type="{self.button_type(int(component.style))}" {disabled}>{component.label}</discord-button>\n'
-                
-                # TODO: Handle select menus
 
+                    # Handles link buttons
+                    if component.style == 5:
+                        row_str += f'<discord-button url="{component.url}" {disabled}>{self.format_message_content(component.label, {}, {}, {})}</discord-button>\n'
+                        continue
+
+                    row_str += f'<discord-button type="{self.button_type(int(component.style))}" {disabled}>{self.format_message_content(component.label, {}, {}, {})}</discord-button>\n'
+                
             row_str += "</discord-action-row>"
             rows.append(row_str)
 
@@ -415,21 +417,22 @@ class Transcribe:
         return f'<discord-reply slot="reply" profile="{profile}" {edited} {attachment}>{content}</discord-reply>'
 
     @classmethod
-    def make_transcript_html(self, owner_name: str, users: list, messages: list):
+    def make_transcript_html(self, owner: Member, users: list, messages: list, time: datetime):
         # Grab template
         with open('./lookups/transcript_template.txt', 'r') as file:
             template_content = file.read()
         
-        close_time = "10/10/10" #TODO: Get the start or end date for this
+        close_time = time.strftime("%d/%m/%Y %I:%M:%S %p UTC")
         users = ",\n".join(users)
 
         messages.reverse()
         messages = "".join(messages)
 
-        template_content = template_content.replace("%%title%%", f"{owner_name}'s Ticket {close_time}")
+        template_content = template_content.replace("%%title%%", f'{owner.username} ({owner.id})\'s Ticket')
+        template_content = template_content.replace("%%time%%", close_time)
         template_content = template_content.replace("%%profiles%%", users)
         template_content = template_content.replace("%%messages%%", messages)
-
+        
         return self().handy_replaces(template_content)
     
     def replace_italics(self, text):
