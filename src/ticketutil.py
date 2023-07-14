@@ -213,7 +213,7 @@ class Transcribe:
         return f'<discord-command slot="reply" profile="{user_map[int(message.interaction._user_id)]}" command="/{message.interaction.name}"></discord-command>'
 
     def format_message_content(self, content: str, roles, channels, users):
-        # TODO: Add markdown headings
+        content = self.format_markdown_headings(content)
 
         content = self.replace_multiline_code(content)
         content = self.replace_inline_code(content)
@@ -234,6 +234,27 @@ class Transcribe:
         content = self.format_emojis(content)
 
         return content
+
+    def format_markdown_headings(self, text: str):
+        lines = text.split("\n")
+        new_lines = []
+
+        for line in lines:
+            if line.startswith("# "):
+                new_lines.append(f'<div style="font-size: 24px; font-weight: bold; float: left;">{line.replace("# ", "")}</div>')
+                continue
+
+            if line.startswith("## "):
+                new_lines.append(f'<div style="font-size: 20px; font-weight: bold; float: left;">{line.replace("## ", "")}</div>')
+                continue
+
+            if line.startswith("### "):
+                new_lines.append(f'<div style="font-weight: bold; float: left;">{line.replace("### ", "")}</div>')
+                continue
+            
+            new_lines.append(line)
+        
+        return "\n".join(new_lines)
 
     def format_emojis(self, text):
         text = self.replace_unicode_emojis(text)
