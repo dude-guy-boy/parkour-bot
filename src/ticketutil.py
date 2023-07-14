@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 from interactions import BaseChannel, Button, ButtonStyle, Client, BaseContext, ChannelType, Embed, GuildText, Member, Message, PermissionOverwrite, GuildChannel, StickerFormatType, StickerItem, TimestampStyles
 import emoji
 from PIL import Image
@@ -197,11 +198,8 @@ class Transcribe:
                 emojis.append((reaction.emoji.name, f"https://cdn.discordapp.com/emojis/{emoji_id}{ext}", reaction.count))
                 break
 
-            for emoji_item in emoji.emoji_list(str(reaction.emoji)):
-                # Convert emoji unicode chars into twemoji image filename
-                raw_emoji_unicode = emoji_item['emoji'].encode('unicode_escape').decode('utf-8')
-                unicode_chars = raw_emoji_unicode.split('\\U000')[1:]
-                emojis.append((emoji_item['emoji'], f"https://raw.githubusercontent.com/jdecked/twemoji/main/assets/svg/{'-'.join(unicode_chars)}.svg", reaction.count))
+            # Convert emoji unicode chars into twemoji image filename
+            emojis.append((str(reaction.emoji), self.get_emoji_url(str(reaction.emoji)), reaction.count))
 
         reactions_str = '<discord-reactions slot="reactions">\n'
         for emoji_entry in emojis:
@@ -215,10 +213,7 @@ class Transcribe:
         return f'<discord-command slot="reply" profile="{user_map[int(message.interaction._user_id)]}" command="/{message.interaction.name}"></discord-command>'
 
     def format_message_content(self, content: str, roles, channels, users):
-        # TODO: Role, user and channel mentions
-
         # TODO: Add markdown headings
-        # TODO: Replace in-content custom and default emojis
 
         content = self.replace_multiline_code(content)
         content = self.replace_inline_code(content)
@@ -236,10 +231,65 @@ class Transcribe:
         content = self.format_user_mentions(content, users)
         content = self.format_role_mentions(content, roles)
 
+        content = self.format_emojis(content)
+
         return content
 
     def format_emojis(self, text):
-        pass
+        text = self.replace_unicode_emojis(text)
+        text = self.replace_letter_emojis(text)
+        text = self.replace_custom_emojis(text)
+
+        return text
+
+    def replace_custom_emojis(self, text: str):
+        emoji_pattern = r'<a?:\w+:\d+>'
+        custom_emojis = re.findall(emoji_pattern, text)
+
+        for custom_emoji in custom_emojis:
+            ext = ".gif" if custom_emoji.startswith("<a:") else ".png"
+            emoji_id = str(custom_emoji).split(":")[2][:-1]
+
+            text = text.replace(custom_emoji, f'<discord-custom-emoji url="https://cdn.discordapp.com/emojis/{emoji_id}{ext}"></discord-custom-emoji>')
+
+        return text
+
+    def replace_unicode_emojis(self, text: str):
+        emoji_list = emoji.emoji_list(text)
+
+        for emoji_item in emoji_list:
+            emoji_code = emoji_item['emoji']
+            
+            text = text.replace(emoji_code, f'<discord-custom-emoji url="{self.get_emoji_url(emoji_code)}"></discord-custom-emoji>')
+
+        return text
+    
+    def replace_letter_emojis(self, text):
+        for char in text:
+            if (unicodedata.name(char, "").startswith("REGIONAL INDICATOR SYMBOL LETTER") or unicodedata.name(char, "").startswith("REGIONAL INDICATOR SYMBOL CAPITAL LETTER")):
+                text = text.replace(char, f'<discord-custom-emoji url="{self.get_emoji_url(char)}"></discord-custom-emoji>')
+
+        return text
+    
+    def get_emoji_url(self, emoji_code: str):
+        chars = [item.encode("unicode_escape").decode('utf-8') for item in emoji_code]
+        updated_chars = []
+
+        for idx, char in enumerate(chars):
+            newchar = ""
+            if not char.startswith("\\"):
+                updated_chars.append(str(hex(ord(char)))[2:])
+                continue
+            
+            newchar = char.replace("\\U000", "")
+            newchar = newchar.replace("\\u", "")
+
+            if newchar == "fe0f" and (idx != len(chars)-1 or len(chars) <= 2):
+                continue
+
+            updated_chars.append(newchar)
+
+        return f'https://raw.githubusercontent.com/jdecked/twemoji/main/assets/svg/{"-".join(updated_chars)}.svg'
 
     def format_user_mentions(self, text: str, users: dict):
         for user in users:
