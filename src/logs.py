@@ -33,7 +33,7 @@ def get_slash_command(ctx: SlashContext):
 
         # Option is member
         if isinstance(option, Member):
-            option = option.display_name
+            option = option.username
 
         # Option is role
         if isinstance(option, Role):
@@ -54,7 +54,7 @@ class DiscordLogger:
         logging_channel = await bot.fetch_channel(logging_channel_id)
 
         embed = Embed(
-            author=EmbedAuthor(name=ctx.author.display_name, icon_url=ctx.author.avatar.url),
+            author=EmbedAuthor(name=ctx.author.username, icon_url=ctx.author.avatar.url),
             description=f"User {ctx.author.mention} used a slash command in {ctx.channel.mention}.",
             color=Color.WHITE
         )
@@ -72,7 +72,7 @@ class DiscordLogger:
         logging_channel = await bot.fetch_channel(logging_channel_id)
 
         embed = Embed(
-            author=EmbedAuthor(name=bot.user.display_name, icon_url=bot.user.avatar.url),
+            author=EmbedAuthor(name=bot.user.username, icon_url=bot.user.avatar.url),
             description=description,
             color=Color.WHITE
         )
@@ -88,7 +88,7 @@ class DiscordLogger:
 
         embed = Embed(
             title=f"Error: {type(error.error).__name__}",
-            author=EmbedAuthor(name=bot.user.display_name, icon_url=bot.user.avatar.url),
+            author=EmbedAuthor(name=bot.user.username, icon_url=bot.user.avatar.url),
             description=f"```\n{out[:EMBED_MAX_DESC_LENGTH - 8]}```",
             color=Color.RED
         )

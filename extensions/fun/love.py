@@ -115,7 +115,7 @@ class Love(Extension):
             return
         
         str_soulmates = "> " + "\n> ".join([soulmate.mention for soulmate in soulmates])
-        if_sender = f"You have" if user.id == ctx.author.id else f"{user.display_name} has"
+        if_sender = "You have" if user.id == ctx.author.id else f"{user.username} has"
 
         soulmate_paginator = Paginator.create_from_string(self.bot, content=str_soulmates, num_lines=10, allow_multi_user=True)
         soulmate_paginator.default_button_color = ButtonStyle.GRAY

@@ -105,7 +105,7 @@ class Polls(Extension):
             title=f"Emoji Poll #{poll_number}",
             description=f"{ctx.author.mention} is suggesting removing the emoji `:{emoji_name}:` {emoji}",
             color=Color.YORANGE,
-            author=EmbedAuthor(name=f"{ctx.member.user.display_name}", icon_url=ctx.member.user.avatar.url),
+            author=EmbedAuthor(name=f"{ctx.member.user.username}", icon_url=ctx.member.user.avatar.url),
             footer="The outcome will be decided in 24 Hours!"
         )
 
@@ -128,7 +128,7 @@ class Polls(Extension):
         Data.set_data_item(key=str(poll.id), value={"channel_id": str(poll.channel.id), "end_time": time.strftime("%d/%m/%Y, %H:%M"), "emoji": emoji}, table="emoji_polls")
 
         # Log poll
-        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created an emoji poll to remove {emoji}")
+        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created an emoji poll to remove {emoji}")
 
         self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll to remove {emoji}")
 
@@ -230,7 +230,7 @@ class Polls(Extension):
             title=f"Emoji Poll #{poll_number}",
             description=f"{ctx.author.mention} is suggesting adding the emoji below as `:{name}:`",
             color=Color.YORANGE,
-            author=EmbedAuthor(name=f"{ctx.member.user.display_name}", icon_url=ctx.member.user.avatar.url),
+            author=EmbedAuthor(name=f"{ctx.member.user.username}", icon_url=ctx.member.user.avatar.url),
             images=EmbedAttachment(url=f"attachment://{image_filename}"),
             footer="The outcome will be decided in 24 Hours!"
         )
@@ -254,7 +254,7 @@ class Polls(Extension):
         Data.set_data_item(key=str(poll.id), value={"channel_id": str(poll.channel.id), "end_time": time.strftime("%d/%m/%Y, %H:%M"), "emoji_image_path": image_filepath, "emoji_name": name}, table="emoji_polls")
 
         # Log poll
-        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created an emoji poll\nName: `{name}`\nimage: `{image.url}`")
+        await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created an emoji poll\nName: `{name}`\nimage: `{image.url}`")
 
         self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll. Name: '{name}', image: '{image.url}'")
 
@@ -533,7 +533,7 @@ class Polls(Extension):
                 name=f"Anonymous User", icon_url="https://cdn.discordapp.com/attachments/972473507223056384/986914030130188308/2123041_copy.png")
         else:
             embed.set_author(
-                name=f"{ctx.member.user.display_name}", icon_url=ctx.member.user.avatar.url)
+                name=f"{ctx.member.user.username}", icon_url=ctx.member.user.avatar.url)
 
         # Set image if needed
         file = None
@@ -587,9 +587,9 @@ class Polls(Extension):
 
         # Log anonymous polls
         if anonymous:
-            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} {ctx.author.display_name} created an anonymous poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
+            await logs.DiscordLogger.log_raw(self.bot, f"{ctx.author.mention} {ctx.author.username} created an anonymous poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
         else:
-            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.display_name} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
+            await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
 
         self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, {if_image}'")
 
