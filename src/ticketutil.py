@@ -12,7 +12,7 @@ from src.download import download
 class Ticket:
     @classmethod
     async def create(cls, ctx: BaseContext, name: str, overwrites: list[PermissionOverwrite], category: int, identifier: str):
-        channel = await ctx.guild.create_channel(channel_type = ChannelType.GUILD_TEXT, name = name, topic = identifier, category = category, overwrites = overwrites)
+        channel = await ctx.guild.create_text_channel(name = name, topic = identifier, category = category, permission_overwrites = overwrites)
         return channel
     
     @classmethod
@@ -20,8 +20,9 @@ class Ticket:
         channels: list[BaseChannel] = await ctx.guild.fetch_channels()
 
         for channel in channels:
-            if channel.type == ChannelType.GUILD_TEXT and channel.parent_id == category_id and channel.topic == ticket_identifier:
-                return channel
+            if "parent_id" in channel.to_dict():
+                if int(channel.parent_id) == int(category_id) and channel.topic == ticket_identifier:
+                    return channel
             
     @classmethod
     def is_ticket(self, channel: GuildChannel):
@@ -432,7 +433,7 @@ class Transcribe:
         template_content = template_content.replace("%%time%%", close_time)
         template_content = template_content.replace("%%profiles%%", users)
         template_content = template_content.replace("%%messages%%", messages)
-        
+
         return self().handy_replaces(template_content)
     
     def replace_italics(self, text):
