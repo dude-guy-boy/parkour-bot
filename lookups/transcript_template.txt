@@ -57,6 +57,7 @@
       <main>
         <div class="content">
             <h3 class="title">%%title%%</h3>
+            <h4 style="color: #c7c7c7;">%%time%%</h4>
             <discord-messages>
             %%messages%%
             </discord-messages>
