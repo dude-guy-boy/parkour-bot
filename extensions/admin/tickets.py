@@ -186,13 +186,13 @@ class Tickets(Extension):
         # Combine into final html document
         html = Transcribe.make_transcript_html(owner, user_profiles, messages, time)
 
-        # TODO: Save transcript
-        with open("output.html", "w") as file:
+        file_time_format = time.strftime("%d-%m-%Y_%H-%M-%S")
+        with open(f"{dump_dir.path}/{owner_id}-{file_time_format}.html", "w") as file:
             # Write the string to the file
             file.write(html)
 
-        # Close ticket
-        pass
+        #TODO: Close ticket
+        
 
     @component_callback("claim_points")
     async def claim_points_callback(self, ctx: ComponentContext):

@@ -141,7 +141,7 @@ class Transcribe:
                     '<script>\n'
                     "    var animation = bodymovin.loadAnimation({\n"
                     f"        container: document.getElementById('lottie-container-{sticker.id}'),\n"
-                    f"        path: '{sticker_path}',\n"
+                    f"        path: 'attachments/{sticker.id}.json',\n"
                     "        renderer: 'svg',\n"
                     "        loop: true,\n"
                     "        autoplay: true,\n"
@@ -161,14 +161,14 @@ class Transcribe:
 
     def make_image_attachment(self, filepath: str):
         width = self.get_media_width(filepath)
-        return f'<discord-attachment url="{filepath}" alt="{filepath.split("/")[-1]}" width="{width}"></discord-attachment>\n'
+        return f'<discord-attachment url="attachments/{filepath.split("attachments")[-1]}" alt="{filepath.split("/")[-1]}" width="{width}"></discord-attachment>\n'
 
     def make_non_embed_attachment(self, filepath: str, filename: str, file_ext: str):
         return (
             '<div style="width: 500px; padding: 10px; box-sizing: border-box; border-radius: 10px; background-color: #2f3136; text-indent: 5px; border: 0.5px solid #282828;">\n'
             '<div>\n'
             '<img src="assets/emptydoc.svg" width="30px" style="float: left; padding-top: 0px; padding-right: 5px; padding-left: 5px;" alt="file">\n'
-            f'<p style="margin-top: 5px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="{filepath}" download>{filename}</a></p>\n'
+            f'<p style="margin-top: 5px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="attachments/{filepath.split("attachments")[-1]}" download>{filename}</a></p>\n'
             f'<p style="margin-top: -5px; margin-bottom: 5px; padding-top: 0px; font-size: 12px; color: #868484; font-weight: 500;">{self.get_file_size(filepath)}</p>\n'
             '</div></div>\n'
         )
@@ -177,14 +177,14 @@ class Transcribe:
         return (
             '<div style="width: 500px; padding: 10px; box-sizing: border-box; border-radius: 10px; background-color: #2f3136; text-indent: 5px; border: 0.5px solid #282828;">\n'
             '<div><img src="assets/audiodoc.svg" width="24px" style="float: left; padding-top: 4px; padding-right: 5px; padding-left: 5px;" alt="audio">\n'
-            f'<p style="margin-top: 0px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="{filepath}" download>{filename}</a></p>\n'
+            f'<p style="margin-top: 0px; margin-bottom: 0px; padding-bottom: 0px; font-size: 18px;"><a href="attachments/{filepath.split("attachments")[-1]}" download>{filename}</a></p>\n'
             f'<p style="margin-top: -5px; margin-bottom: 8px; padding-top: 0px; font-size: 12px; color: #868484; font-weight: 500;">{self.get_file_size(filepath)}</p></div>\n'
-            f'<audio controls style="width: 450px;"><source src="{filepath}" type="audio/{file_ext}">Your browser does not support the audio element.</audio></div>\n'
+            f'<audio controls style="width: 450px;"><source src="attachments/{filepath.split("attachments")[-1]}" type="audio/{file_ext}">Your browser does not support the audio element.</audio></div>\n'
         )
 
     def make_video_attachment(self, filepath: str, file_ext: str):
         width = self.get_media_width(filepath)
-        return f'<video width="{width}" controls><source src="{filepath}" type="video/{file_ext}">Your browser does not support the video tag.</video>\n'
+        return f'<video width="{width}" controls><source src="attachments/{filepath.split("attachments")[-1]}" type="video/{file_ext}">Your browser does not support the video tag.</video>\n'
 
     def make_reactions(self, message: Message):
         emojis = []
