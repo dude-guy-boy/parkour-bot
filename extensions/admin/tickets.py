@@ -36,6 +36,7 @@ class Tickets(Extension):
     config = SlashCommand(name="config", description="base config command")
     ticket = SlashCommand(name="ticket", description="base ticket command")
 
+    ### /TICKET OPEN POINTS ###
     @ticket.subcommand(
         group_name="open",
         group_description="Open a ticket",
@@ -106,8 +107,9 @@ class Tickets(Extension):
         await ctx.send(embeds=embed, ephemeral=True)
 
         await logs.DiscordLogger.log(self.bot, ctx, f"Created a new points ticket for {ctx.author.mention}")
-        self.logger.info(f"Created a new points ticket for {ctx.author.user.username}#{ctx.author.user.discriminator}")
+        self.logger.info(f"Created a new points ticket for {ctx.author.user.username}")
 
+    ### CLOSE TICKET BUTTON CALLBACK ###
     @component_callback("close_ticket")
     async def close_ticket_callback(self, ctx: ComponentContext):
         # Exit if channel isnt a ticket
@@ -191,14 +193,19 @@ class Tickets(Extension):
             # Write the string to the file
             file.write(html)
 
-        #TODO: Close ticket
-        
+        # Close ticket
+        await logs.DiscordLogger.log(self.bot, ctx, f"Closed {owner.mention}'s ticket")
+        self.logger.info(f"Closed {owner.username}'s ticket")
+        await ctx.channel.delete()
+        # TODO: Add link to ticket transcript
 
+    ### CLAIM POINTS BUTTON CALLBACK ###
     @component_callback("claim_points")
     async def claim_points_callback(self, ctx: ComponentContext):
-        # TODO: Create points ticket
-        pass
+        # Create points ticket
+        await self.open_points(ctx)
 
+    ### /SEND-TICKET-BUTTON ###
     @slash_command(
         name="send-ticket-button",
         description="Send an 'open points ticket' button in chat"
@@ -229,7 +236,7 @@ class Tickets(Extension):
     async def config_set_points_category(self, ctx: SlashContext, category):
         Config.set_config_parameter(key="point_ticket_category_id", value=str(category.id))
         await ctx.send(embed=Embed(description=f"Set the category to {category.mention}", color=Color.GREEN), ephemeral=True)
-
+        
     @config.subcommand(
         group_name="tickets",
         group_description="config for tickets",
