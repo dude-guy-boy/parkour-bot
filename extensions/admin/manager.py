@@ -129,7 +129,6 @@ class Manager(Extension):
         required=True,
         choices=[
             SlashCommandChoice(name="Today", value="./backups/today"),
-            SlashCommandChoice(name="This Week", value="./backups/this_week"),
             SlashCommandChoice(name="Older", value="./backups/older")
         ]
     )
@@ -248,7 +247,6 @@ class Manager(Extension):
         # Create backup directories if they don't exist
         Directory("./backups").create()
         Directory("./backups/today").create()
-        Directory("./backups/this_week").create()
         Directory("./backups/older").create()
 
         # Make folder in backups directory for new backup
@@ -286,12 +284,10 @@ class Manager(Extension):
 
         latest_backup = max(files, key=os.path.getctime)
 
-        shutil.move(latest_backup, f"./backups/this_week/{latest_backup.split('/')[-1]}")
+        shutil.move(latest_backup, f"./backups/older/{latest_backup.split('/')[-1]}")
         today.delete()
 
         self.logger.info(f"Day finished, cleaned up daily backups")
-
-        # TODO: Add weekly cleanup
 
     ### Hourly Backups Task ###
     @Task.create(IntervalTrigger(hours=1))
