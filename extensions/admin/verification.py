@@ -51,7 +51,7 @@ class Verification(Extension):
     )
     @slash_option(
         name="code",
-        description="The code you received when joining the verification server (parkourcentral.link)",
+        description="The code you received when joining the verification server (play.parkourcentral.link)",
         opt_type=OptionType.STRING,
         required=True
     )
