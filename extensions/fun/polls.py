@@ -130,7 +130,7 @@ class Polls(Extension):
         # Log poll
         await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created an emoji poll to remove {emoji}")
 
-        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll to remove {emoji}")
+        self.logger.info(f"{ctx.author.user.username} created an emoji poll to remove {emoji}")
 
     ### /EMOJI-POLL ADD-EMOJI ###
     @emoji_poll.subcommand(
@@ -256,7 +256,7 @@ class Polls(Extension):
         # Log poll
         await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created an emoji poll\nName: `{name}`\nimage: `{image.url}`")
 
-        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created an emoji poll. Name: '{name}', image: '{image.url}'")
+        self.logger.info(f"{ctx.author.user.username} created an emoji poll. Name: '{name}', image: '{image.url}'")
 
     @Task.create(IntervalTrigger(minutes=1))
     async def emoji_remove_poll_finish(self):
@@ -591,7 +591,7 @@ class Polls(Extension):
         else:
             await logs.DiscordLogger.log_raw(self.bot,f"{ctx.author.mention} {ctx.author.username} created a poll\nQuestion: `{question}`\nEmojis: {', '.join(emoji_list)}\nThread: {thread}\n{if_image}")
 
-        self.logger.info(f"{ctx.author.user.username}#{ctx.author.user.discriminator} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, {if_image}'")
+        self.logger.info(f"{ctx.author.user.username} created a poll. Question: '{question}', Emojis: {', '.join(emoji_list)}, Thread: {thread}, {if_image}'")
 
     # Checks if the input emojis are accessible by the bot
     async def check_accessible_emojis(self, guild: Guild, emoji_list):
